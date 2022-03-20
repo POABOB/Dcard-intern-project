@@ -395,21 +395,130 @@ Percentage of the requests served within a certain time (ms)
 
 * 因為nodejs是單個porcess的設計，我們可以使用pm2來實現多個nodejs process 提高效率
 
+* 全域安裝
+
 ```gherkin=
-npm i pm2
+npm i pm2 --save-dev
 ```
 
-* 新增prd使用pm2啟用
+* 新增一些pm2的常用指令
 
 `package.json`
 ```gherkin=
 "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "cross-env NODE_ENV=dev nodemon ./bin/www.js",
-    "prd": "cross-env NODE_ENV=dev pm2 ./bin/www.js -i 4"
+    "prd": "cross-env NODE_ENV=dev pm2 start ./bin/www.js -i 4",
+    "restart": "cross-env NODE_ENV=dev pm2 restart www",
+    "list": "cross-env NODE_ENV=dev pm2 list",
+    "stop": "cross-env NODE_ENV=dev pm2 stop www",
+    "delete": "cross-env NODE_ENV=dev pm2 delete www"
   },
 ```
 
+* 開啟服務
 
+```gherkin=
+C:\Users\poabob\Desktop\Dcard> npm run prd
+
+> nodejs@1.0.0 prd C:\Users\poabob\Desktop\Dcard
+> cross-env NODE_ENV=dev pm2 start ./bin/www.js -i 4
+
+[PM2] Starting C:\Users\poabob\Desktop\Dcard\bin\www.js in cluster_mode (4 instances)
+[PM2] Done.
+┌─────┬────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id  │ name   │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├─────┼────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0   │ www    │ default     │ 1.0.0   │ cluster │ 12848    │ 0s     │ 0    │ online    │ 0%       │ 49.8mb   │ poabob   │ disabled │
+│ 1   │ www    │ default     │ 1.0.0   │ cluster │ 18548    │ 0s     │ 0    │ online    │ 0%       │ 49.5mb   │ poabob   │ disabled │
+│ 2   │ www    │ default     │ 1.0.0   │ cluster │ 5168     │ 0s     │ 0    │ online    │ 0%       │ 49.8mb   │ poabob   │ disabled │
+│ 3   │ www    │ default     │ 1.0.0   │ cluster │ 23444    │ 0s     │ 0    │ online    │ 0%       │ 49.6mb   │ poabob   │ disab
+```
+
+* 同時一百個請求，總共訪問一萬次有效短網址
+
+```
+C:\Users\poabob\Desktop> .\ab.exe -n 10000 -c 100 http://localhost/NNNNB
+
+Concurrency Level:      100
+Time taken for tests:   5.272 seconds
+Complete requests:      10000
+Failed requests:        0
+Non-2xx responses:      10000
+Total transferred:      2000000 bytes
+HTML transferred:       0 bytes
+Requests per second:    1896.64 [#/sec] (mean)
+Time per request:       52.725 [ms] (mean)
+Time per request:       0.527 [ms] (mean, across all concurrent requests)
+Transfer rate:          370.44 [Kbytes/sec] received
+
+Connection Times (ms)
+              min  mean[+/-sd] median   max
+Connect:        0    0   0.5      0       1
+Processing:     6   52   4.0     52      87
+Waiting:        6   39   8.6     40      70
+Total:          6   52   4.0     53      87
+
+Percentage of the requests served within a certain time (ms)
+  50%     53
+  66%     53
+  75%     54
+  80%     54
+  90%     55
+  95%     56
+  98%     58
+  99%     59
+ 100%     87 (longest request)
+```
+
+
+* 同時一千個請求，總共訪問十萬次有效短網址
+
+```
+C:\Users\poabob\Desktop> .\ab.exe -n 100000 -c 1000 http://localhost/NNNNB
+
+Concurrency Level:      1000
+Time taken for tests:   56.264 seconds
+Complete requests:      100000
+Failed requests:        0
+Non-2xx responses:      100000
+Total transferred:      20000000 bytes
+HTML transferred:       0 bytes
+Requests per second:    1777.33 [#/sec] (mean)
+Time per request:       562.642 [ms] (mean)
+Time per request:       0.563 [ms] (mean, across all concurrent requests)
+Transfer rate:          347.13 [Kbytes/sec] received
+
+Connection Times (ms)
+              min  mean[+/-sd] median   max
+Connect:        0    0   0.5      0       2
+Processing:    68  560  38.2    556     687
+Waiting:        3  299 159.2    299     679
+Total:         68  560  38.2    557     687
+
+Percentage of the requests served within a certain time (ms)
+  50%    557
+  66%    562
+  75%    567
+  80%    573
+  90%    589
+  95%    619
+  98%    641
+  99%    656
+ 100%    687 (longest request)
+```
+
+### 3. 是否還有其他方式優化?
+
+* redis使用cluster
+
+* mysql使用cluster
+
+> 我功力還沒這麼深qq
+
+### 4. 結論
+
+* redis確實可以替mysql作到提速的作用
+* 使用pm2來管理nodejs cluster，增加性能是可行的
 
 ## 四、單元測試
