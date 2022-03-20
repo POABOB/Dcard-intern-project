@@ -395,7 +395,7 @@ Percentage of the requests served within a certain time (ms)
 
 * 因為nodejs是單個porcess的設計，我們可以使用pm2來實現多個nodejs process 提高效率
 
-* 全域安裝
+* 安裝
 
 ```gherkin=
 npm i pm2 --save-dev
