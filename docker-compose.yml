@@ -1,0 +1,21 @@
+version: '3'
+services:
+    mysql:
+        image: mariadb:10.4
+        restart: always
+        environment:
+            - MYSQL_DATABASE=shortURL
+            - MYSQL_ROOT_PASSWORD=root
+            - MYSQL_USER=root
+            - MYSQL_PASSWORD=root
+        ports:
+            - "3306:3306"
+        command: --init-file /data/application/init.sql
+        volumes:
+            - "./data/db/mysql:/var/lib/mysql"
+            - ./init.sql:/data/application/init.sql
+    redis:
+        image: redis:4-alpine
+        restart: always
+        ports:
+            - "6379:6379"

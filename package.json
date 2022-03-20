@@ -1,0 +1,31 @@
+{
+  "name": "Dcard",
+  "version": "1.0.0",
+  "description": "",
+  "main": "bin/www.js",
+  "directories": {
+    "example": "example"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "cross-env NODE_ENV=dev nodemon ./bin/www.js",
+    "prd": "cross-env NODE_ENV=dev pm2 start ./bin/www.js -i 4",
+    "restart": "cross-env NODE_ENV=dev pm2 restart www",
+    "list": "cross-env NODE_ENV=dev pm2 list",
+    "stop": "cross-env NODE_ENV=dev pm2 stop www",
+    "delete": "cross-env NODE_ENV=dev pm2 delete www"
+  },
+  "author": "POABOB",
+  "license": "ISC",
+  "devDependencies": {
+    "cross-env": "^6.0.0",
+    "nodemon": "^1.19.2",
+    "pm2": "^5.2.0"
+  },
+  "dependencies": {
+    "mysql": "^2.17.1",
+    "path-to-regexp": "^6.2.0",
+    "redis": "^2.8.0",
+    "xss": "^1.0.6"
+  }
+}
