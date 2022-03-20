@@ -8,8 +8,8 @@ const handleIndexRouter = (req, res) => {
 	const method = req.method;
 
 	//GET，獲取短url
-    const fn = match("/:ShortId([a-zA-Z0-9-~]{5})", { decode: decodeURIComponent })(req.path);
-    // pathToRegexp('/:ShortId([a-zA-Z0-9]{5})', keys, { end: true }).test(req.path)
+    const fn = match("/:ShortId([a-zA-Z0-9\-~]{5})", { decode: decodeURIComponent })(req.path);
+    // pathToRegexp('/:ShortId([a-zA-Z0-9\-~]{5})', keys, { end: true }).test(req.path)
 	if(method === 'GET' && fn) {
         //先將64進位的id轉化10進位id
         const id = convertShortIdToId(fn.params.ShortId);
