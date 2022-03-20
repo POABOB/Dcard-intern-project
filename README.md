@@ -401,7 +401,7 @@ Percentage of the requests served within a certain time (ms)
 npm i pm2 --save-dev
 ```
 
-* 新增一些pm2的常用指令
+* 新增一些pm2的常用指令， -i 是要啟用的process數量
 
 `package.json`
 ```gherkin=
@@ -419,20 +419,25 @@ npm i pm2 --save-dev
 * 開啟服務
 
 ```gherkin=
-C:\Users\poabob\Desktop\Dcard> npm run prd
+C:\Users\poabob\Desktop\Dcard> npm run prd     
 
-> nodejs@1.0.0 prd C:\Users\poabob\Desktop\Dcard
+> Dcard@1.0.0 prd C:\Users\poabob\Desktop\Dcard
 > cross-env NODE_ENV=dev pm2 start ./bin/www.js -i 4
 
-[PM2] Starting C:\Users\poabob\Desktop\Dcard\bin\www.js in cluster_mode (4 instances)
-[PM2] Done.
+[PM2] Applying action restartProcessId on app [www](ids: [ 0, 1, 2, 3 ])
+[PM2] [www](0) ✓
+[PM2] [www](1) ✓
+[PM2] [www](3) ✓
+[PM2] [www](2) ✓
+[PM2] Process successfully started
 ┌─────┬────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
 │ id  │ name   │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
 ├─────┼────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
-│ 0   │ www    │ default     │ 1.0.0   │ cluster │ 12848    │ 0s     │ 0    │ online    │ 0%       │ 49.8mb   │ poabob   │ disabled │
-│ 1   │ www    │ default     │ 1.0.0   │ cluster │ 18548    │ 0s     │ 0    │ online    │ 0%       │ 49.5mb   │ poabob   │ disabled │
-│ 2   │ www    │ default     │ 1.0.0   │ cluster │ 5168     │ 0s     │ 0    │ online    │ 0%       │ 49.8mb   │ poabob   │ disabled │
-│ 3   │ www    │ default     │ 1.0.0   │ cluster │ 23444    │ 0s     │ 0    │ online    │ 0%       │ 49.6mb   │ poabob   │ disab
+│ 0   │ www    │ default     │ 1.0.0   │ cluster │ 23348    │ 1s     │ 0    │ online    │ 0%       │ 50.1mb   │ poabob   │ disabled │
+│ 1   │ www    │ default     │ 1.0.0   │ cluster │ 17940    │ 1s     │ 0    │ online    │ 0%       │ 49.9mb   │ poabob   │ disabled │
+│ 2   │ www    │ default     │ 1.0.0   │ cluster │ 15552    │ 1s     │ 0    │ online    │ 0%       │ 49.7mb   │ poabob   │ disabled │
+│ 3   │ www    │ default     │ 1.0.0   │ cluster │ 16468    │ 1s     │ 0    │ online    │ 0%       │ 49.9mb   │ poabob   │ disabled │
+└─────┴────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
 ```
 
 * 同時一百個請求，總共訪問一萬次有效短網址
@@ -519,6 +524,7 @@ Percentage of the requests served within a certain time (ms)
 ### 4. 結論
 
 * redis確實可以替mysql作到提速的作用
+
 * 使用pm2來管理nodejs cluster，增加性能是可行的
 
 ## 四、單元測試
