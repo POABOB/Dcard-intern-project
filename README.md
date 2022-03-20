@@ -78,7 +78,7 @@ npm run dev
 
 ### 2. 程式邏輯
 
-#### API 1 => GET /:ShortId([a-zA-Z0-9-~]{5})
+#### API 1 => POST /api/v1/urls
 
 * 程式流程
 
@@ -184,7 +184,7 @@ const urlMaxLength = 5;
 const _64Bit = new Array("N", "O", "P", "4", "5", "6", "7", "8", "9", "m", "Q", "R", "S", "X", "Y", "A", "B", "C", "K", "L", "M", "D", "E", "T", "U", "V", "W", "F", "a", "b", "c", "d", "e", "f", "r", "s", "t", "u", "v", "w", "G", "H", "I", "J", "1", "2", "3", "-", "~", "Z", "g", "h", "i", "j", "k", "l", "n", "o", "p", "q", "x", "y", "z", "0",);
 ```
 
-#### API 2 => POST /api/v1/urls
+#### API 2 => GET /:ShortId([a-zA-Z0-9-~]{5})
 
 * 程式流程
 
