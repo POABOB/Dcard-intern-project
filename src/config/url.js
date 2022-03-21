@@ -6,7 +6,7 @@ if(env === 'dev') {
 }
 
 if(env === 'production') {
-	HOST_CONF = 'http://lrs.im.ncue.edu.tw/'
+	HOST_CONF = 'http://lrs.im.ncue.edu.tw:9000/'
 }
 
 module.exports = {
