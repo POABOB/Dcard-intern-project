@@ -7,18 +7,19 @@
     "example": "example"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "dev": "cross-env NODE_ENV=dev nodemon ./bin/www.js",
-    "prd": "cross-env NODE_ENV=dev pm2 start ./bin/www.js -i 4",
-    "restart": "cross-env NODE_ENV=dev pm2 restart www",
-    "list": "cross-env NODE_ENV=dev pm2 list",
-    "stop": "cross-env NODE_ENV=dev pm2 stop www",
-    "delete": "cross-env NODE_ENV=dev pm2 delete www"
+    "prd": "cross-env NODE_ENV=production pm2-runtime start ./bin/www.js -i 4",
+    "restart": "cross-env NODE_ENV=production pm2-runtime restart www",
+    "list": "cross-env NODE_ENV=production pm2-runtime list",
+    "stop": "cross-env NODE_ENV=production pm2-runtime stop www",
+    "delete": "cross-env NODE_ENV=production pm2-runtime delete www"
   },
   "author": "POABOB",
   "license": "ISC",
   "devDependencies": {
     "cross-env": "^6.0.0",
+    "jest": "^27.5.1",
     "nodemon": "^1.19.2",
     "pm2": "^5.2.0"
   },

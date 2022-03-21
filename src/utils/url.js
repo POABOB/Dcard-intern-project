@@ -1,4 +1,4 @@
-const { _64Bit, urlRegx, urlMaxLength } = require('./const');
+const { _64Bit, urlMaxLength } = require('./const');
 
 //目前使用5位字串(64 ^ 5 = 1,073,741,824)，原因是我使用unsigned int (4,294,967,295)
 //如果之後想要改更長，可以使用unsigned bigint(2 ^ 64 - 1)，就可以讓字串數增加至多到10位字串(64 ^ 10)

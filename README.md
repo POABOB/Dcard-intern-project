@@ -95,7 +95,7 @@ const { get, set } = require('../db/redis');
 const { ErrorModel, BaseModel } = require('../utils/response');
 const { HOST_CONF } = require('../config/url');
 const { getURL, insertURL} = require('../model/index');
-const { validateUrl, validateExpire, convertIdToShortId } = require("../utils/url");
+const { validateUrl, validateExpire, convertIdToShortId, convertShortIdToId } = require("../utils/url");
 
 const insertOriginUrl = async (url, expireAt) => {
 	//表單驗證，判斷url和datetime是否valid
@@ -215,15 +215,19 @@ const { get, set } = require('../db/redis');
 const { ErrorModel, BaseModel } = require('../utils/response');
 const { HOST_CONF } = require('../config/url');
 const { getURL, insertURL} = require('../model/index');
-const { validateUrl, validateExpire, convertIdToShortId } = require("../utils/url");
-const getOriginUrlById = async (id, req, res) => {
-    let result = await get(id)
+const { validateUrl, validateExpire, convertIdToShortId, convertShortIdToId } = require("../utils/url");
+const getOriginUrlById = async (ShortId, req, res) => {
+    //先將64進位的id轉化10進位id
+    const id = convertShortIdToId(ShortId);
+    let result;
+    result = await get(id)
     if(result === null) {
         // redis沒有，往mysql找
         result = await getURL(id)
         // 有沒有找到都要存入redis，目的是避免同時大量查找不存在的url
         if(result.length !== 0) {
-            set(id, { url: result[0]['url'], expireAt: result[0]['expireAt'] })
+            result = result[0]
+            set(id, { url: result['url'], expireAt: result['expireAt'] })
         } else {
             set(id, { url: null, expireAt: Date.now() / 1000 })
         }

@@ -2,8 +2,10 @@ const { get, set } = require('../db/redis');
 const { ErrorModel, BaseModel } = require('../utils/response');
 const { HOST_CONF } = require('../config/url');
 const { getURL, insertURL} = require('../model/index');
-const { validateUrl, validateExpire, convertIdToShortId } = require("../utils/url");
-const getOriginUrlById = async (id, req, res) => {
+const { validateUrl, validateExpire, convertIdToShortId, convertShortIdToId } = require("../utils/url");
+const getOriginUrlById = async (ShortId, req, res) => {
+    //先將64進位的id轉化10進位id
+    const id = convertShortIdToId(ShortId);
     let result;
     result = await get(id)
     if(result === null) {
