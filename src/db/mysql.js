@@ -1,41 +1,37 @@
-const { MYSQL_CONF } = require('../config/db');
 const mysql = require('mysql');
-let conn;
+const { promisify } = require('util');
+let conn, query;
 
-function connect() {
-	conn = mysql.createConnection(MYSQL_CONF);
-	conn.connect(handleError);
-	conn.on('error', handleError);
-}
-
-function exec(sql) {
-	const promise = new Promise((resolve, reject) => {
-		conn.query(sql, (err, result) => {
-			if(err) {
-				reject(err);
-				return;
-			}
-			resolve(result);
-		});
+const connectMysql = async (config) => {
+	return new Promise((resolve, reject) => {
+		try {
+			conn = mysql.createConnection(config);
+			query = promisify(conn.query).bind(conn);
+			conn.on('error', handleError);
+			resolve(conn);
+		} catch (err) {
+			reject(err);
+		}
 	});
-
-	return promise;
 }
 
-function handleError(err) {
+const exec = async (sql) => {
+	return query(sql);
+}
+
+const handleError = (err) => {
 	if (err) {
 	  	// 如果是連線斷開，自動重新連線
 		if (err.code === 'PROTOCOL_CONNECTION_LOST') {
-			connect();
+			connectMysql();
 		} else {
 			console.error(err.stack || err);
 		}
 	}
 }
 
-connect()
-
 module.exports = {
+	connectMysql, 
 	exec,
 	escape: mysql.escape
 }
