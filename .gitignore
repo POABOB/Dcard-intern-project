@@ -2,3 +2,6 @@ data/
 node_modules/
 .env
 .env.test
+
+coverage/
+*.lcov
