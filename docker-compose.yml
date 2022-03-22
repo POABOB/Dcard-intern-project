@@ -22,7 +22,7 @@ services:
     # nodejs:
     #     build: .
     #     restart: always
-    #     command: npm run prd
+    #     command: npm run prd-d
     #     volumes:
     #         - .:/app
     #         - /app/node_modules

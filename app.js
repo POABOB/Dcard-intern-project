@@ -1,7 +1,7 @@
 const { getPostData } = require('./src/utils/post');
 const handleIndexRouter = require('./src/router/index');
 
-const serverHandler = async (req, res) => {
+const serverHandler = (req, res) => {
 	//設定返回格式為JSON
 	res.setHeader('Content-type', 'application/json');
 

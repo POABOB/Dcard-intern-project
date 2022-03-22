@@ -1,14 +1,15 @@
-const { match } = require('path-to-regexp');
 const { getOriginUrlById, insertOriginUrl } = require("../controller/index");
 
 const handleIndexRouter = (req, res) => {
     // 獲取方法和動態url_id的key
 	const method = req.method;
 
-	//GET，獲取短url
-    const fn = match("/:ShortId([a-zA-Z0-9\-~]{5})", { decode: decodeURIComponent })(req.path);
-	if(method === 'GET' && fn) {
-        return getOriginUrlById(fn.params.ShortId, req, res)
+    //GET，獲取短url
+    //只能ShortId匹配 大小寫字母 數字 - ~
+    // ex. /ABCE~ or /AB-DE/
+    const ShortId = req.path.match(/^\/([A-Za-z0-9\-~]{5})\/?$/)
+	if(method === 'GET' && ShortId !== null) {
+        return getOriginUrlById(ShortId[1], req, res)
 	}
 
     //POST，新增短URL

@@ -9,24 +9,24 @@
   "scripts": {
     "test": "cross-env NODE_ENV=dev jest --forceExit --coverage --verbose",
     "dev": "cross-env NODE_ENV=dev nodemon ./bin/www.js",
-    "prd": "cross-env NODE_ENV=production pm2-runtime start ./bin/www.js -i 4",
-    "restart": "cross-env NODE_ENV=production pm2-runtime restart www",
-    "list": "cross-env NODE_ENV=production pm2-runtime list",
-    "stop": "cross-env NODE_ENV=production pm2-runtime stop www",
-    "delete": "cross-env NODE_ENV=production pm2-runtime delete www"
+    "prd-d": "cross-env NODE_ENV=production pm2-runtime start ./bin/www.js -i 4",
+    "prd": "cross-env NODE_ENV=production pm2 start ./bin/www.js -i 4",
+    "restart": "cross-env NODE_ENV=production pm2 restart www",
+    "list": "cross-env NODE_ENV=production pm2 list",
+    "stop": "cross-env NODE_ENV=production pm2 stop www",
+    "delete": "cross-env NODE_ENV=production pm2 delete www"
   },
   "author": "POABOB",
   "license": "ISC",
   "devDependencies": {
     "cross-env": "^6.0.0",
     "jest": "^27.5.1",
-    "nodemon": "^1.19.2",
+    "nodemon": "^2.0.15",
     "pm2": "^5.2.0"
   },
   "dependencies": {
     "mysql": "^2.17.1",
-    "path-to-regexp": "^6.2.0",
-    "redis": "^2.8.0",
+    "redis": "^4.0.4",
     "xss": "^1.0.6"
   }
 }

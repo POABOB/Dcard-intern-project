@@ -1,5 +1,11 @@
 # URL Shortener(2022 Dcard backend實習生題目)
 
+## 零、Demo
+
+> 該Demo屬於暫時開放，待面試結束後將會關閉。可以使用curl or postman來替該restful api進行Demo。
+
+* Demo網址：http://lrs.im.ncue.edu.tw:9000/
+
 ## 一、如何使用
 
 > 第一次使用，請安裝npm的lib，並請確認機器是否有安裝node、npm
@@ -10,15 +16,50 @@ npm i
 
 ### 1. 使用docker-compose
 
+#### dev
+
 * 開啟docker中的mysql、redis
+
 ```gherkin=
 docker-compose up -d
 ```
 
 * 確認mysql、redis開啟後，開啟服務
+
 ```gherkin=
 npm run dev
 ```
+
+#### prd
+
+1. 請將 `docker-compose.yml` 中的nodejs service解除註解
+
+2. 編輯自己server上的域名，如果要改變port，請連同 `docker-compose.yml` port中的 - "\<port\>:80"也一起改
+
+`src/config/url.js`
+```
+//環境參數
+const env = process.env.NODE_ENV;
+let HOST_CONF;
+if(env === 'dev') {
+	HOST_CONF = 'http://localhost/'
+}
+
+if(env === 'production') {
+	HOST_CONF = '<url>:<port>/'
+}
+
+module.exports = {
+	HOST_CONF
+};
+```
+
+3. 執行docker-compose
+
+```gherkin=
+docker-compose up -d
+```
+
 ###  2. 不使用docker-compose
 
 #### mysql、redis配置
@@ -33,25 +74,84 @@ CREATE DATABASE IF NOT EXISTS shortURL;
 USE shortURL;
 CREATE TABLE IF NOT EXISTS `shortURL`.`url` ( `id` INT UNSIGNED NOT NULL AUTO_INCREMENT , `url` TEXT NOT NULL , `expireAt` INT NOT NULL , PRIMARY KEY (`id`)) ENGINE = InnoDB
 ```
-* 再配置連線的config
+* 配置連線資料庫的config
 
 `src/config/db.js`
 ```gherkin=
-MYSQL_CONF = {
-    host: 'localhost',
-    user: '<username>',
-    password: '<password>',
-    port: '3306',
-    database: 'shortURL'
-};
-REDIS_CONF = {
-    port: 6379,
-    host: '127.0.0.1'
+//環境參數
+const env = process.env.NODE_ENV;
+
+let MYSQL_CONF;
+let REDIS_CONF;
+
+if(env === 'dev') {
+	//mysql
+	MYSQL_CONF = {
+			host: 'localhost',
+			user: '<username>',
+			password: '<password>',
+			port: '3306',
+			database: 'shortURL',
+		};
+	//redis
+	REDIS_CONF = {
+		port: 6379,
+		host: '127.0.0.1'
+	};
+}
+
+if(env === 'production') {
+	MYSQL_CONF = {
+			host: '<host>',
+			user: '<username>',
+			password: '<password>',
+			port: '3306',
+			database: 'shortURL'
+		};
+	REDIS_CONF = {
+		port: 6379,
+		host: '<host>'
+	};
+}
+
+module.exports = {
+	MYSQL_CONF,
+	REDIS_CONF
 };
 ```
+
+* 配置url
+
+`src/config/url.js`
+```
+//環境參數
+const env = process.env.NODE_ENV;
+let HOST_CONF;
+if(env === 'dev') {
+	HOST_CONF = 'http://localhost/'
+}
+
+if(env === 'production') {
+	HOST_CONF = '<url>:<port>/'
+}
+
+module.exports = {
+	HOST_CONF
+};
+```
+
 * 確認mysql、redis配置好且開啟後，開啟服務
+
+#### dev
+
 ```gherkin=
 npm run dev
+```
+
+#### prd
+
+```gherkin=
+npm run prd
 ```
 
 ## 二、題目
@@ -85,6 +185,7 @@ npm run dev
 ![API 1](./img/b.jpg)
 
 * 方法
+
 	1. ~~短網址的 url_id 必須是一個唯一值，如果說使用md5取前幾位數的話，那麼很容易產生碰撞，所以不適合。~~
 	
 	2. 使用64進位的方式，將url和expireAt插入mysql中返回的自增id(唯一且以主鍵搜尋很快)作轉換
@@ -96,31 +197,32 @@ const { ErrorModel, BaseModel } = require('../utils/response');
 const { HOST_CONF } = require('../config/url');
 const { getURL, insertURL} = require('../model/index');
 const { validateUrl, validateExpire, convertIdToShortId, convertShortIdToId } = require("../utils/url");
+const { datetimeRegex } = require("../utils/const");
 
 const insertOriginUrl = async (url, expireAt) => {
-	//表單驗證，判斷url和datetime是否valid
-    if(url === "" || !validateUrl(url)) {
-        return new ErrorModel(`The post data url = ${url} is invalid!!!`);
-    } else if(isNaN(Date.parse(expireAt)) || Date.parse(expireAt) < 1000000000) {
-        return new ErrorModel(`The post data expireAt = ${expireAt} is invalid!!!`);
+    try {
+        if(url === "" || !validateUrl(url)) {
+            res.writeHead(400, {"Content-type": "text/plain"});
+            return new ErrorModel(`The post data url = ${url} is invalid!!!`);
+        } else if(expireAt.match(datetimeRegex) === null || Date.parse(expireAt) < Date.now().getTime() / 1000) {
+            res.writeHead(400, {"Content-type": "text/plain"});
+            return new ErrorModel(`The post data expireAt = ${expireAt} is invalid!!!`);
+        }
+
+        expireAt = new Date(expireAt).getTime() / 1000;
+        const data = await insertURL(url, expireAt)
+
+        // 插入redis
+        set(data['id'], { url: url, expireAt: expireAt })
+        // 得到新增的id後
+        const ShortId = convertIdToShortId(data['id'])
+        // 返回BaseModel
+        return new BaseModel(ShortId, HOST_CONF + ShortId);
+    } catch(e) {
+        res.writeHead(400, {"Content-type": "text/plain"});
+        return new ErrorModel(`Error Ocurred`);
     }
-
-	//js中timestamp是毫秒級的，所以必須除以1000
-    expireAt = new Date(expireAt).getTime() / 1000;
-
-	//插入mysql
-    const data = await insertURL(url, expireAt)
-
-    // 插入redis
-    set(data['id'], { url: url, expireAt: expireAt })
-
-    // 得到新增的id後
-    const ShortId = convertIdToShortId(data['id'])
-
-    // 返回短網址
-    return new BaseModel(ShortId, HOST_CONF + ShortId);
 };
-
 ```
 
 * 轉換url_id位數
@@ -165,7 +267,6 @@ const convertShortIdToId = (ShortId) => {
     const ShortIdArray = ShortId.split("");
     
     //轉換成原本id
-	//ex key * 64 ^ 0 + key * 64 ^ 1 + key * 64 ^ 2 + key * 64 ^ 3 + key(0-63) * 64 ^ 4 (key是五位字串中，分別對應64進位table的index)
     while(i < urlMaxLength) {
         id += (_64Bit.findIndex(char => char === ShortIdArray[urlMaxLength - (i + 1)])) * Math.pow(64, i);
         i++;
@@ -181,7 +282,8 @@ const convertShortIdToId = (ShortId) => {
 `src/utils/const.js`
 ```gherkin=
 const urlMaxLength = 5;
-const _64Bit = new Array("N", "O", "P", "4", "5", "6", "7", "8", "9", "m", "Q", "R", "S", "X", "Y", "A", "B", "C", "K", "L", "M", "D", "E", "T", "U", "V", "W", "F", "a", "b", "c", "d", "e", "f", "r", "s", "t", "u", "v", "w", "G", "H", "I", "J", "1", "2", "3", "-", "~", "Z", "g", "h", "i", "j", "k", "l", "n", "o", "p", "q", "x", "y", "z", "0",);
+const datetimeRegex = /((19|2\d)\d\d)-((0[1-9])|(1[0-2]))-((0[1-9])|([1-2]\d)|(3[01]))([ T]{1})(([0-1]\d)|(2[0-3])):(([0-5]\d)):(([0-5]\d))([Z]?)/;
+const _64Bit = new Array( "N", "O", "P", "4", "5", "6", "7", "8", "9", "m", "Q", "R", "S", "X", "Y", "A", "B", "C", "K", "L", "M", "D", "E", "T", "U", "V", "W", "F", "a", "b", "c", "d", "e", "f", "r", "s", "t", "u", "v", "w", "G", "H", "I", "J", "1", "2", "3", "-", "~", "Z", "g", "h", "i", "j", "k", "l", "n", "o", "p", "q", "x", "y", "z", "0",);
 ```
 
 #### API 2 => GET /:ShortId([a-zA-Z0-9\-~]{5})
@@ -216,34 +318,40 @@ const { ErrorModel, BaseModel } = require('../utils/response');
 const { HOST_CONF } = require('../config/url');
 const { getURL, insertURL} = require('../model/index');
 const { validateUrl, validateExpire, convertIdToShortId, convertShortIdToId } = require("../utils/url");
+const { datetimeRegx } = require("../utils/const");
+
 const getOriginUrlById = async (ShortId, req, res) => {
-    //先將64進位的id轉化10進位id
-    const id = convertShortIdToId(ShortId);
-    let result;
-    result = await get(id)
-    if(result === null) {
-        // redis沒有，往mysql找
-        result = await getURL(id)
-        // 有沒有找到都要存入redis，目的是避免同時大量查找不存在的url
-        if(result.length !== 0) {
-            result = result[0]
-            set(id, { url: result['url'], expireAt: result['expireAt'] })
-        } else {
-            set(id, { url: null, expireAt: Date.now() / 1000 })
+    try {
+        //先將64進位的id轉化10進位id
+        const id = convertShortIdToId(ShortId);
+        let result;
+        result = await get(id)
+        if(result === null) {
+            // redis沒有，往mysql找
+            result = await getURL(id)
+            // 有沒有找到都要存入redis，目的是避免同時大量查找不存在的url
+            if(result.length !== 0) {
+                result = result[0]
+                set(id, { url: result['url'], expireAt: result['expireAt'] })
+            } else {
+                set(id, { url: null, expireAt: Date.now() / 1000 })
+            }
         }
 
+        //redis有，直接從redis返回
+        if(result['url'] !== undefined && validateExpire(result['expireAt'])) {
+            //如果這筆短網址存在，使用302避免301 expire了照樣會有cache
+            res.writeHead(302, { 'Location': result['url'] });
+        } else {
+            res.writeHead(404, {"Content-type": "text/plain"});
+            res.write(`${req.method} ${req.path} 404 Not Found\n`);
+        }
+        res.end();
+        return;
+    } catch(e) {
+        res.writeHead(400, {"Content-type": "text/plain"});
+        return new ErrorModel(`Error Ocurred`);
     }
-
-    //redis有，直接從redis返回
-    if(result['url'] !== undefined && validateExpire(result['expireAt'])) {
-        //如果這筆短網址存在，使用302避免301 expire了照樣會有cache
-        res.writeHead(302, { 'Location': result['url'] });
-    } else {
-        res.writeHead(404, {"Content-type": "text/plain"});
-		res.write(`${req.method} ${req.path} 404 Not Found\n`);
-    }
-    res.end();
-    return;
 };
 ```
 
@@ -532,3 +640,361 @@ Percentage of the requests served within a certain time (ms)
 * 使用pm2來管理nodejs cluster，增加性能是可行的
 
 ## 四、單元測試
+
+## 五、程式架構
+
+### 1. 目錄結構
+
+```gherkin=
+ C:\Users\poabob\Desktop> tree -I 'node_modules|img'
+.
+├── app.js
+├── bin
+│   └── www.js
+├── docker-compose.yml
+├── Dockerfile
+├── init.sql
+├── package.json
+├── package-lock.json
+├── README.md
+├── src
+│   ├── config
+│   │   ├── db.js
+│   │   └── url.js
+│   ├── controller
+│   │   └── index.js
+│   ├── db
+│   │   ├── mysql.js
+│   │   └── redis.js
+│   ├── model
+│   │   └── index.js
+│   ├── router
+│   │   └── index.js
+│   └── utils
+│       ├── const.js
+│       ├── post.js
+│       ├── response.js
+│       ├── session.js
+│       └── url.js
+└── test
+    ├── db
+    │   ├── mysql.test.js
+    │   └── redis.test.js
+    ├── router
+    │   └── index.test.js
+    └── utils
+        ├── response.test.js
+        └── url.test.js
+```
+
+### 2. 引用三方lib
+
+* 主要引用mysql、redis、xss這三種作為本次作業的lib
+    * mysql、redis主要是讓nodejs連接兩個資料庫
+
+    * xss用來避免mysql被插入惡意程式片段
+
+* cross-env：方便在npm run指令的時候，建立環境變數，ex. mode=dev
+
+* jest：用來跑unit test，不過我是初學者...
+
+* nodemon、pm2：nodejs的開發(nodemon)和部屬(pm2)工具
+
+`package.json`
+```gherkin=
+{
+  "name": "Dcard",
+  "version": "1.0.0",
+  "description": "",
+  "main": "bin/www.js",
+  "directories": {
+    "example": "example"
+  },
+  "scripts": {
+    "test": "cross-env NODE_ENV=dev jest --forceExit --coverage --verbose",
+    "dev": "cross-env NODE_ENV=dev nodemon ./bin/www.js",
+    "prd-d": "cross-env NODE_ENV=production pm2-runtime start ./bin/www.js -i 4",
+    "prd": "cross-env NODE_ENV=production pm2 start ./bin/www.js -i 4",
+    "restart": "cross-env NODE_ENV=production pm2 restart www",
+    "list": "cross-env NODE_ENV=production pm2 list",
+    "stop": "cross-env NODE_ENV=production pm2 stop www",
+    "delete": "cross-env NODE_ENV=production pm2 delete www"
+  },
+  "author": "POABOB",
+  "license": "ISC",
+  "devDependencies": {
+    "cross-env": "^6.0.0",
+    "jest": "^27.5.1",
+    "nodemon": "^2.0.15",
+    "pm2": "^5.2.0"
+  },
+  "dependencies": {
+    "mysql": "^2.17.1",
+    "redis": "^4.0.4",
+    "xss": "^1.0.6"
+  }
+}
+```
+
+### 3. 程式解析
+
+* 執行檔案，主要是連接資料庫和創建http服務
+
+`bin/www.js`
+```gherkin=
+const http = require('http');
+
+const PORT = 80;
+const serverHandler = require('../app');
+
+const { connectRedis } = require('../src/db/redis');
+const { connectMysql, handleError } = require('../src/db/mysql');
+const { MYSQL_CONF, REDIS_CONF } = require('../src/config/db');
+
+// 初始化redis
+try {
+    connectRedis({ port: REDIS_CONF.port, host: REDIS_CONF.host });
+} catch (e) {
+    console.error("Redis connetion/init error:" + e.stack);
+    process.exit(1);
+}
+
+// 初始化mysql
+try {
+    connectMysql(MYSQL_CONF);
+} catch (e) {
+    console.error("Mysql connetion/init error:" + e.stack);
+    process.exit(1);
+}
+
+const server = http.createServer(serverHandler);
+
+server.listen(PORT);
+console.log(`Listening on port ${PORT}...Press CTRL-C to stop.`);
+```
+
+* 獲取url path
+* 獲取postData
+* Router判斷
+
+`app.js`
+```gherkin=
+const { getPostData } = require('./src/utils/post');
+const handleIndexRouter = require('./src/router/index');
+
+const serverHandler = (req, res) => {
+	//設定返回格式為JSON
+	res.setHeader('Content-type', 'application/json');
+
+	//獲取path
+	const url = req.url;
+	req.path = url.split('?')[0];
+
+    getPostData(req, res).then(postData => {
+        //獲取postData
+		req.body = postData;
+		//Router註冊
+		/*******************************/
+		//處理index路由
+		const index =  handleIndexRouter(req, res);
+		if(index) {
+			index.then(data => res.end(JSON.stringify(data)))
+			return;
+		}
+		
+		//404
+		res.writeHead(404, {"Content-type": "text/plain"});
+		res.write(`${req.method} ${req.path} 404 Not Found\n`);
+		res.end();
+	});
+};
+
+module.exports = serverHandler;
+```
+
+* 使用stream的方式去擷取data，並判斷method和header是否正確
+
+`src/utils/post.js`
+```gherkin=
+// 獲取post過來的data
+const getPostData = (req, res) => {
+	const promise = new Promise((resolve, reject) => {
+		//如果方法不是POST，返回空
+		if(req.method === 'GET' || req.method === 'DELETE') {
+			resolve({});
+			return;
+		}
+		//如果header不是json，返回空
+		if(req.headers['content-type'] !== 'application/json') {
+			resolve({});
+			return;
+		}
+
+		let postData = '';
+		req.on('data', chunk =>{
+			postData += chunk.toString();
+		});
+
+		//如果沒有POST資料，返回空
+		req.on('end', () => {
+			if(!postData) {
+				resolve({});
+				return;
+			}
+
+			resolve(
+				JSON.parse(postData)
+			);
+		});
+	});
+
+	return promise;
+};
+
+module.exports = {
+    getPostData
+}
+```
+
+* 判斷method和用正則來判斷url path是否正確，如果沒有就不return，直接404
+* 原本想要使用path-to-regexp來判斷url path，但其實也只有一個路由需要判斷，所以決定手寫
+
+`src/router/index.js`
+```gherkin=
+const { getOriginUrlById, insertOriginUrl } = require("../controller/index");
+
+const handleIndexRouter = (req, res) => {
+    // 獲取方法和動態url_id的key
+	const method = req.method;
+
+    //GET，獲取短url
+    //只能ShortId匹配 大小寫字母 數字 - ~
+    // ex. /ABCE~ or /AB-DE/
+    const ShortId = req.path.match(/^\/([A-Za-z0-9\-~]{5})\/?$/)
+	if(method === 'GET' && ShortId !== null) {
+        return getOriginUrlById(ShortId[1], req, res)
+	}
+
+    //POST，新增短URL
+	if(method === 'POST' && req.path === '/api/v1/urls') {
+		return insertOriginUrl(req.body.url, req.body.expireAt);
+	}
+};
+
+module.exports = handleIndexRouter;
+```
+
+* mysql功能模組化
+
+`src/db/mysql.js`
+```gherkin=
+const mysql = require('mysql');
+const { promisify } = require('util');
+let conn, query;
+
+const connectMysql = async (config) => {
+	return new Promise((resolve, reject) => {
+		try {
+			conn = mysql.createConnection(config);
+			query = promisify(conn.query).bind(conn);
+			conn.on('error', handleError);
+			resolve(conn);
+		} catch (err) {
+			reject(err);
+		}
+	});
+}
+
+const exec = async (sql) => {
+	return query(sql);
+}
+
+const handleError = (err) => {
+	if (err) {
+	  	// 如果是連線斷開，自動重新連線
+		if (err.code === 'PROTOCOL_CONNECTION_LOST') {
+			connectMysql();
+		} else {
+			console.error(err.stack || err);
+		}
+	}
+}
+
+module.exports = {
+	connectMysql, 
+	exec,
+	escape: mysql.escape
+}
+```
+
+* redis功能模組化
+
+`src/db/redis.js`
+```gherkin=
+const redis = require('redis');
+const { promisify } = require('util');
+let client, setAsync, getAsync;
+
+const connectRedis = async (config) => {
+	return new Promise((resolve, reject) => {
+		try {
+			client = redis.createClient(config.port, config.host);
+			setAsync = promisify(client.set).bind(client);
+			getAsync = promisify(client.get).bind(client);
+			resolve(client);
+		} catch (err) {
+			reject(err);
+		}
+	});
+}
+
+
+const set = async (key, val) => {
+	if(typeof val === 'object') {
+		val = JSON.stringify(val);
+	}
+  	return setAsync(key, val);
+}
+
+const get = async (key) => {
+	return getAsync(key);
+}
+
+module.exports = {
+	set,
+	get,
+	connectRedis
+}
+```
+
+* 執行sql語法，並返回結果
+
+`src/model/index.js`
+```gherkin=
+const { exec, escape } = require('../db/mysql');
+const xss = require('xss')
+
+//查
+const getURL = async (id) => {
+	let sql = `select url, expireAt from url where id = ${xss(escape(id))} limit 1;`;
+	//返回promise
+	return await exec(sql);
+};
+
+//增
+const insertURL = async (url, expireAt) => {
+	let sql = `INSERT INTO url (url, expireAt) VALUES (${xss(escape(url))},${xss(escape(expireAt))});`;
+	return await exec(sql).then(data => {
+		return { id: data.insertId }
+	});
+};
+
+module.exports = {
+	getURL,
+	insertURL,
+};
+```
+
+4. 作業心得
+
+其實原本一開始想說用express直接來簡單寫完就好，不過後來想想不用auth session，也只有兩個路由。不如就直接來動手寫http server，相對較有挑戰之外，也開始讓我更熟悉nodejs的Emit機制。我有好幾次都被異步給搞到頭很痛(習慣php寫法)，經過這次練習，我不但更熟悉了Promise，也複習以前曾經學習過的知識，還順便找回寫程式的熱情。
