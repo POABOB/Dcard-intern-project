@@ -1,37 +1,40 @@
 const mysql = require('mysql');
-const { promisify } = require('util');
-let conn, query;
-
-const connectMysql = async (config) => {
-	return new Promise((resolve, reject) => {
-		try {
-			conn = mysql.createConnection(config);
-			query = promisify(conn.query).bind(conn);
-			conn.on('error', handleError);
-			resolve(conn);
-		} catch (err) {
-			reject(err);
-		}
-	});
-}
-
-const exec = async (sql) => {
-	return query(sql);
-}
-
-const handleError = (err) => {
-	if (err) {
-	  	// 如果是連線斷開，自動重新連線
-		if (err.code === 'PROTOCOL_CONNECTION_LOST') {
-			connectMysql();
-		} else {
-			console.error(err.stack || err);
-		}
-	}
-}
+const { MYSQL_CONF } = require('../config/db');
 
 module.exports = {
-	connectMysql, 
-	exec,
+	config: MYSQL_CONF,
+	pool: null,
+	create: function () {
+		if(!this.pool) {
+			this.pool = mysql.createPool(this.config)
+		}
+	},
+	exec: async function (sql)  {
+		return new Promise(( resolve, reject ) => {
+			try {
+				this.create();
+				this.pool.getConnection(function(err, connection) {
+					if (err) {
+						reject(err);
+					} else {
+						connection.query(sql, (err, result) => {
+
+							if (err) {
+								reject(err);
+									console.error(err);
+							} else {
+								resolve(result);
+								
+							}
+							connection.release();
+						});
+					}
+				});
+			} catch (e) {
+				reject(e);
+				console.error(e);
+			}
+		});
+	},
 	escape: mysql.escape
 }

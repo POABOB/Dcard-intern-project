@@ -9,12 +9,12 @@ const handleIndexRouter = (req, res) => {
     // ex. /ABCE~ or /AB-DE/
     const ShortId = req.path.match(/^\/([A-Za-z0-9\-~]{5})\/?$/)
 	if(method === 'GET' && ShortId !== null) {
-        return getOriginUrlById(ShortId[1], req, res)
+        return getOriginUrlById(req, res, ShortId[1]);
 	}
 
     //POST，新增短URL
 	if(method === 'POST' && req.path === '/api/v1/urls') {
-		return insertOriginUrl(req.body.url, req.body.expireAt);
+		return insertOriginUrl(req, res);
 	}
 };
 

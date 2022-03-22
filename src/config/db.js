@@ -7,30 +7,38 @@ let REDIS_CONF;
 if(env === 'dev') {
 	//mysql
 	MYSQL_CONF = {
-			host: 'localhost',
-			user: 'root',
-			password: 'root',
-			port: '3306',
-			database: 'shortURL',
-		};
+		host: 'localhost',
+		user: 'root',
+		password: 'root',
+		port: '3306',
+		database: 'shortURL',
+		waitForConnections : true,
+		connectionLimit : 10,
+		acquireTimeout: 10000
+	};
 	//redis
 	REDIS_CONF = {
 		port: 6379,
-		host: '127.0.0.1'
+		host: 'localhost'
 	};
 }
 
 if(env === 'production') {
+	//mysql
 	MYSQL_CONF = {
-			host: 'mysql',
-			user: 'root',
-			password: 'root',
-			port: '3306',
-			database: 'shortURL'
-		};
+		host: 'localhost',
+		user: 'root',
+		password: 'root',
+		port: '3306',
+		database: 'shortURL',
+		waitForConnections : true,
+		connectionLimit : 10,
+		acquireTimeout: 10000
+	};
+	//redis
 	REDIS_CONF = {
 		port: 6379,
-		host: 'redis'
+		host: 'localhost'
 	};
 }
 

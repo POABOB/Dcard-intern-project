@@ -8,26 +8,14 @@ services:
             - MYSQL_ROOT_PASSWORD=root
             - MYSQL_USER=root
             - MYSQL_PASSWORD=root
+        command: --init-file /data/application/init.sql
         ports:
             - "3306:3306"
-        command: --init-file /data/application/init.sql
         volumes:
             - "./data/db/mysql:/var/lib/mysql"
             - ./init.sql:/data/application/init.sql
     redis:
-        image: redis:4-alpine
+        image: redis:6-alpine
         restart: always
         ports:
             - "6379:6379"
-    # nodejs:
-    #     build: .
-    #     restart: always
-    #     command: npm run prd-d
-    #     volumes:
-    #         - .:/app
-    #         - /app/node_modules
-    #     ports:
-    #         - "9000:80"
-    #     depends_on:
-    #         - mysql
-    #         - redis
