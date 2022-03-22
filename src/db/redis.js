@@ -3,7 +3,7 @@ const { REDIS_CONF } = require('../config/db');
 
 // 生成redis的client
 const client = redis.createClient(REDIS_CONF.port, REDIS_CONF.host);
-
+client.connect();
 module.exports = {
 	// 存储值
 	set: set = (key, val) => {
