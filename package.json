@@ -14,7 +14,8 @@
     "list": "cross-env NODE_ENV=production pm2 list",
     "stop": "cross-env NODE_ENV=production pm2 stop www",
     "delete": "cross-env NODE_ENV=production pm2 delete www",
-    "logs": "cross-env NODE_ENV=production pm2 logs www"
+    "logs": "cross-env NODE_ENV=production pm2 logs www",
+    "flush": "pm2 flush"
   },
   "author": "POABOB",
   "license": "ISC",
