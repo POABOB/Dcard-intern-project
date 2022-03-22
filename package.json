@@ -9,6 +9,7 @@
   "scripts": {
     "test": "cross-env NODE_ENV=dev jest --forceExit --coverage --verbose",
     "dev": "cross-env NODE_ENV=dev nodemon ./bin/www.js",
+    "prd-d": "cross-env NODE_ENV=production pm2-runtime start ./bin/www.js -i 4",
     "prd": "cross-env NODE_ENV=production pm2 start ./bin/www.js -i 4",
     "restart": "cross-env NODE_ENV=production pm2 restart www",
     "list": "cross-env NODE_ENV=production pm2 list",
