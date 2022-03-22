@@ -1,4 +1,4 @@
-const redisDB = require('../db/redis');
+const { get, set } = require('../db/redis');
 const { ErrorModel, BaseModel } = require('../utils/response');
 const { HOST_CONF } = require('../config/url');
 const { getURL, insertURL} = require('../model/index');
@@ -9,7 +9,7 @@ const getOriginUrlById = async (req, res, ShortId) => {
     try {
         //先將64進位的id轉化10進位id
         const id = convertShortIdToId(ShortId);
-        let result = await redisDB.get(id);
+        let result = await get(id);
         
         if(result === null) {
             // redis沒有，往mysql找
@@ -18,9 +18,9 @@ const getOriginUrlById = async (req, res, ShortId) => {
 
             if(result.length !== 0) {
                 result = result[0]
-                redisDB.set(id, { url: result['url'], expireAt: result['expireAt'] })
+                set(id, { url: result['url'], expireAt: result['expireAt'] })
             } else {
-                redisDB.set(id, { url: null, expireAt: Date.now() / 1000 })
+                set(id, { url: null, expireAt: Date.now() / 1000 })
             }
         }
         //redis有，直接從redis返回
@@ -55,7 +55,7 @@ const insertOriginUrl = async (req, res) => {
         const data = await insertURL(url, expireAt)
 
         // 插入redis
-        redisDB.set(data['id'], { url: url, expireAt: expireAt })
+        set(data['id'], { url: url, expireAt: expireAt })
         // 得到新增的id後
         const ShortId = convertIdToShortId(data['id'])
         // 返回BaseModel
