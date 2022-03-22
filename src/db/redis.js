@@ -3,13 +3,13 @@ const { REDIS_CONF } = require('../config/db');
 
 // 生成redis的client
 const client = redis.createClient(REDIS_CONF.port, REDIS_CONF.host);
-client.connect();
-client.on('error', err => {
-	console.log(err);
-});
+// client.connect();
+// client.on('error', err => {
+// 	console.log(err);
+// });
 module.exports = {
 	// 存储值
-	set: set = (key, val) => {
+	set: set = async (key, val) => {
 		const p = new Promise((resolve, reject) => {
 			if(typeof val === 'object') {
 				val = JSON.stringify(val);
@@ -32,7 +32,7 @@ module.exports = {
 	},
  
 	// 获取string
-	get: get = (key) => {
+	get: get = async (key) => {
 		const p = new Promise((resolve, reject) => {
 			client.get(key, (err, val) => {
 				if (err) {

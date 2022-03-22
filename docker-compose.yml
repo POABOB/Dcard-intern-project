@@ -15,7 +15,7 @@ services:
             - "./data/db/mysql:/var/lib/mysql"
             - ./init.sql:/data/application/init.sql
     redis:
-        image: redis:6-alpine
+        image: redis:6.0
         restart: always
         ports:
             - "6379:6379"
