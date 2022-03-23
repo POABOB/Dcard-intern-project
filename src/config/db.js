@@ -4,7 +4,7 @@ const env = process.env.NODE_ENV;
 let MYSQL_CONF;
 let REDIS_CONF;
 
-if(env === 'dev') {
+if(env === 'dev' || 'test') {
 	//mysql
 	MYSQL_CONF = {
 		host: 'localhost',

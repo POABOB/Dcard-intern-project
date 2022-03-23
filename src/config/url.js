@@ -1,8 +1,8 @@
 //環境參數
 const env = process.env.NODE_ENV;
 let HOST_CONF;
-if(env === 'dev') {
-	HOST_CONF = 'http://localhost/'
+if(env === 'dev' || 'test') {
+	HOST_CONF = 'http://localhost:9000/'
 }
 
 if(env === 'production') {

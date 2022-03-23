@@ -7,7 +7,7 @@
     "example": "example"
   },
   "scripts": {
-    "test": "cross-env NODE_ENV=dev jest --forceExit --coverage --verbose",
+    "test": "cross-env NODE_ENV=test jest --forceExit --coverage --verbose",
     "dev": "cross-env NODE_ENV=dev nodemon ./bin/www.js",
     "prd-d": "cross-env NODE_ENV=production pm2-runtime start ./bin/www.js -i 4",
     "prd": "cross-env NODE_ENV=production pm2 start ./bin/www.js -i 4",
@@ -24,7 +24,8 @@
     "cross-env": "^6.0.0",
     "jest": "^27.5.1",
     "nodemon": "^2.0.15",
-    "pm2": "^5.2.0"
+    "pm2": "^5.2.0",
+    "supertest": "^6.2.2"
   },
   "dependencies": {
     "mysql": "^2.17.1",

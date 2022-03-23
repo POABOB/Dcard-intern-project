@@ -1,88 +1,98 @@
-import request from "supertest";
-import LevelDb from "../src/db/db";
-import app from "../src/app";
-const redis = require("redis");
-const setMock = jest.fn((key, value, cb) => cb(null, value));
-const getMock = jest.fn((key, cb) => cb(null, "get test url"));
-const incrMock = jest.fn((key, cb) => cb(null, 10));
-redis.createClient = jest.fn(() => {
-  return {
-    set: setMock,
-    get: getMock,
-    incr: incrMock,
-  };
-});
+const { expect } = require('@jest/globals');
+const { test } = require('jest-circus');
+const request = require('supertest');
+const server = require('../../bin/www');
 
-import * as cache from "../src/db/cache";
-cache.connectRedis({ port: 0 });
+let ShortId;
 
-const mockCache = () => {
-  return {
-    __esModule: true,
-    // default: jest.fn(() => 42),
-    connectRedis: jest.fn(() => Promise.resolve()),
-    getNewId: jest.fn(() => Promise.resolve(10)),
-    get: jest.fn(() => Promise.resolve("test url in cache")),
-    set: jest.fn(() => Promise.resolve(true)),
-  };
-};
+describe("POST /api/v1/urls", () => {
+    it('使用正確格式測試 POST /api/v1/urls', async () => {
+        const res = await request(server)
+            .post('/api/v1/urls')
+            .send({
+                url: "http://www.google.com",
+                expireAt: "2025-02-02T20:20:20Z"
+            })
+            let response = JSON.parse(res.res.text)
+            ShortId = response.id;
+            expect(response).toHaveProperty('id');
+            expect(response).toHaveProperty('shortUrl');
+            expect(Object.keys(response).length).toBe(2);
+            expect(res.statusCode).toBe(200);
+    });
 
-LevelDb.setId = jest.fn(() => Promise.resolve(true));
-LevelDb.setUrl = jest.fn(() => Promise.resolve(true));
-LevelDb.getCurrentId = jest.fn(() => Promise.resolve(1));
-LevelDb.getOriginUrl = jest.fn(() => Promise.resolve("test url in db"));
+    it('使用錯誤日期測試 POST /api/v1/urls', async () => {
+        const res = await request(server)
+            .post('/api/v1/urls')
+            .send({
+                url: "http://www.google.com",
+                expireAt: "2025-02-0220:20:20Z"
+            })
+            let response = JSON.parse(res.res.text)
 
-beforeEach(() => {
-  jest.resetModules();
-});
+            expect(response).toHaveProperty('error');
+            expect(Object.keys(response).length).toBe(1);
+            expect(res.statusCode).toBe(400);
+    });
 
-describe("GET /shorturl", () => {
-  it("should return 200 OK", (done) => {
-    request(app)
-      .get("/shorturl?url=http://www.a.com")
-      .expect(200)
-      .end(function (err, res) {
-        if (err) done(err);
-        expect(res.text).toBe("K");
-        done();
-      });
+    it('使用錯誤url測試 POST /api/v1/urls', async () => {
+        const res = await request(server)
+            .post('/api/v1/urls')
+            .send({
+                url: "htt://www.google.com",
+                expireAt: "2025-02-02T20:20:20Z"
+            })
+            let response = JSON.parse(res.res.text)
+
+            expect(response).toHaveProperty('error');
+            expect(Object.keys(response).length).toBe(1);
+            expect(res.statusCode).toBe(400);
+    });
+
+    it('使用錯誤url變數測試 POST /api/v1/urls', async () => {
+        const res = await request(server)
+            .post('/api/v1/urls')
+            .send({
+                uri: "htt://www.google.com",
+                expireAt: "2025-02-02T20:20:20Z"
+            })
+            let response = JSON.parse(res.res.text)
+
+            expect(response).toHaveProperty('error');
+            expect(Object.keys(response).length).toBe(1);
+            expect(res.statusCode).toBe(400);
+    });
+
+    it('使用錯誤expireAt變數測試 POST /api/v1/urls', async () => {
+        const res = await request(server)
+            .post('/api/v1/urls')
+            .send({
+                uri: "htt://www.google.com",
+                expireat: "2025-02-02T20:20:20Z"
+            })
+            let response = JSON.parse(res.res.text)
+
+            expect(response).toHaveProperty('error');
+            expect(Object.keys(response).length).toBe(1);
+            expect(res.statusCode).toBe(400);
+    });
   });
 
-  it("should return invalid URL", () => {
-    request(app).get("/shorturl?url=/www.a.com").expect("Invalid URL");
-  });
-});
+  describe("GET /:ShortId", () => {
+    it('使用正確ShortId測試 GET /:ShortId', async () => {
+        const res = await request(server).get(`/${ShortId}`);
+        expect(res.statusCode).toBe(302);
+    });
 
-describe("GET /originurl", () => {
-  getMock.mockImplementation(
-    jest.fn((key, cb) => cb(null, "test url in cache"))
-  );
-  it("should return url from cache", (done) => {
-    request(app)
-      .get("/originurl?key=CX")
-      .expect(200)
-      .end(function (err, res) {
-        expect(res.text).toBe("test url in cache");
-        if (err) return done(err);
-        return done();
-      });
-  });
+    it('使用過短ShortId測試 GET /:ShortId', async () => {
+        const res = await request(server).get(`/a`);
+            expect(res.text).toBe('GET /a 404 Not Found\n');
+            expect(res.statusCode).toBe(404);
+    });
 
-  it("should return url from db", (done) => {
-    getMock.mockImplementation(jest.fn((key, cb) => cb(null, "")));
-    request(app)
-      .get("/originurl?key=CX")
-      .expect(200)
-      .end(function (err, res) {
-        expect(res.text).toBe("test url in db");
-        if (err) return done(err);
-        return done();
-      });
+    it('使用過長ShortId測試 GET /:ShortId', async () => {
+        const res = await request(server).get(`/sidufhsiufbwuibsusdi`);
+        expect(res.text).toBe('GET /sidufhsiufbwuibsusdi 404 Not Found\n');
+        expect(res.statusCode).toBe(404);
+    });
   });
-
-  it("should return Not Found", () => {
-    getMock.mockImplementation(jest.fn((key, cb) => cb(null, "")));
-    LevelDb.getOriginUrl = jest.fn(() => Promise.reject());
-    request(app).get("/originurl?key=A").expect("Not Found");
-  });
-});

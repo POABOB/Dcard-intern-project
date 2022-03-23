@@ -35,7 +35,7 @@ const getOriginUrlById = async (req, res, ShortId) => {
         return;
     } catch(e) {
         res.writeHead(400, {"Content-type": "text/plain"});
-        return new ErrorModel(`Error Ocurred a${e}`);
+        return new ErrorModel(`Error Ocurred ${e}`);
     }
 };
 
