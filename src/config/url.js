@@ -9,10 +9,6 @@ if(env === 'production') {
 	HOST_CONF = 'http://lrs.im.ncue.edu.tw:9000/'
 }
 
-// if(env === 'production') {
-// 	HOST_CONF = 'http://localhost:9000/'
-// }
-
 module.exports = {
 	HOST_CONF
 };

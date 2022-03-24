@@ -1,6 +1,7 @@
 const mysql = require('mysql');
 const { MYSQL_CONF } = require('../config/db');
 
+//不使用箭頭函數原因是因為不能使用this
 module.exports = {
 	config: MYSQL_CONF,
 	pool: null,

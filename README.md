@@ -34,24 +34,20 @@ npm run dev
 
 1. 請將 `docker-compose.yml` 中的nodejs service解除註解
 
-2. 編輯自己server上的域名，如果要改變port，請連同 `docker-compose.yml` port中的 - "\<port\>:80"也一起改
+2. 編輯自己server上的域名(如果要改變port，請連同 `docker-compose.yml` port中的 - "\<port\>:80"也一起改)
 
 `src/config/url.js`
 ```
 //環境參數
 const env = process.env.NODE_ENV;
 let HOST_CONF;
-if(env === 'dev') {
-	HOST_CONF = 'http://localhost/'
+if(env === 'dev' || 'test') {
+	HOST_CONF = 'http://localhost:9000/'
 }
 
 if(env === 'production') {
 	HOST_CONF = '<url>:<port>/'
 }
-
-module.exports = {
-	HOST_CONF
-};
 ```
 
 3. 執行docker-compose
@@ -84,40 +80,43 @@ const env = process.env.NODE_ENV;
 let MYSQL_CONF;
 let REDIS_CONF;
 
-if(env === 'dev') {
+if(env === 'dev' || 'test') {
 	//mysql
 	MYSQL_CONF = {
-			host: 'localhost',
-			user: '<username>',
-			password: '<password>',
-			port: '3306',
-			database: 'shortURL',
-		};
+		host: 'localhost',
+        user: '<username>',
+        password: '<password>',
+		port: '3306',
+		database: 'shortURL',
+		waitForConnections : true,
+		connectionLimit : 10,
+		acquireTimeout: 10000
+	};
 	//redis
 	REDIS_CONF = {
 		port: 6379,
-		host: '127.0.0.1'
+		host: 'localhost'
 	};
 }
 
 if(env === 'production') {
+	//mysql
 	MYSQL_CONF = {
-			host: '<host>',
-			user: '<username>',
-			password: '<password>',
-			port: '3306',
-			database: 'shortURL'
-		};
+        host: '<host>',
+        user: '<username>',
+        password: '<password>',
+		port: '3306',
+		database: 'shortURL',
+		waitForConnections : true,
+		connectionLimit : 10,
+		acquireTimeout: 10000
+	};
+	//redis
 	REDIS_CONF = {
 		port: 6379,
 		host: '<host>'
 	};
 }
-
-module.exports = {
-	MYSQL_CONF,
-	REDIS_CONF
-};
 ```
 
 * 配置url
@@ -128,16 +127,12 @@ module.exports = {
 const env = process.env.NODE_ENV;
 let HOST_CONF;
 if(env === 'dev') {
-	HOST_CONF = 'http://localhost/'
+	HOST_CONF = 'http://localhost:9000/'
 }
 
 if(env === 'production') {
 	HOST_CONF = '<url>:<port>/'
 }
-
-module.exports = {
-	HOST_CONF
-};
 ```
 
 * 確認mysql、redis配置好且開啟後，開啟服務
@@ -174,7 +169,7 @@ npm run prd
 
 * 不用Auth
 
-* 要考慮到客戶端同時大量請求短網址(包括不存在的短網址)的問題，將性能納入考量
+* 要考慮到客戶端同時大量請求短網址**(包括不存在的短網址)**的問題，將性能納入考量
 
 ### 2. 程式邏輯
 
@@ -188,7 +183,7 @@ npm run prd
 
 	1. ~~短網址的 url_id 必須是一個唯一值，如果說使用md5取前幾位數的話，那麼很容易產生碰撞，所以不適合。~~
 	
-	2. 使用64進位的方式，將url和expireAt插入mysql中返回的自增id(唯一且以主鍵搜尋很快)作轉換
+	2. 使用**64進位**的方式，將url和expireAt插入mysql中返回的**自增id(唯一且以主鍵搜尋很快)**作轉換
 
 `src/controller/index.js`
 ```gherkin=
@@ -199,17 +194,19 @@ const { getURL, insertURL} = require('../model/index');
 const { validateUrl, validateExpire, convertIdToShortId, convertShortIdToId } = require("../utils/url");
 const { datetimeRegex } = require("../utils/const");
 
-const insertOriginUrl = async (url, expireAt) => {
+const insertOriginUrl = async (req, res) => {
     try {
+        let url = req.body.url;
+        let expireAt = req.body.expireAt;
         if(url === "" || !validateUrl(url)) {
             res.writeHead(400, {"Content-type": "text/plain"});
             return new ErrorModel(`The post data url = ${url} is invalid!!!`);
-        } else if(expireAt.match(datetimeRegex) === null || Date.parse(expireAt) < Date.now().getTime() / 1000) {
+        } else if(expireAt.match(datetimeRegex) === null || Date.parse(expireAt) < Date.now() / 1000) {
             res.writeHead(400, {"Content-type": "text/plain"});
             return new ErrorModel(`The post data expireAt = ${expireAt} is invalid!!!`);
         }
 
-        expireAt = new Date(expireAt).getTime() / 1000;
+        expireAt = Math.floor(new Date(expireAt).getTime() / 1000);
         const data = await insertURL(url, expireAt)
 
         // 插入redis
@@ -220,7 +217,7 @@ const insertOriginUrl = async (url, expireAt) => {
         return new BaseModel(ShortId, HOST_CONF + ShortId);
     } catch(e) {
         res.writeHead(400, {"Content-type": "text/plain"});
-        return new ErrorModel(`Error Ocurred`);
+        return new ErrorModel(`Error Ocurred ${e}`);
     }
 };
 ```
@@ -320,16 +317,17 @@ const { getURL, insertURL} = require('../model/index');
 const { validateUrl, validateExpire, convertIdToShortId, convertShortIdToId } = require("../utils/url");
 const { datetimeRegx } = require("../utils/const");
 
-const getOriginUrlById = async (ShortId, req, res) => {
+const getOriginUrlById = async (req, res, ShortId) => {
     try {
         //先將64進位的id轉化10進位id
         const id = convertShortIdToId(ShortId);
-        let result;
-        result = await get(id)
+        let result = await get(id);
+        
         if(result === null) {
             // redis沒有，往mysql找
             result = await getURL(id)
             // 有沒有找到都要存入redis，目的是避免同時大量查找不存在的url
+
             if(result.length !== 0) {
                 result = result[0]
                 set(id, { url: result['url'], expireAt: result['expireAt'] })
@@ -337,7 +335,6 @@ const getOriginUrlById = async (ShortId, req, res) => {
                 set(id, { url: null, expireAt: Date.now() / 1000 })
             }
         }
-
         //redis有，直接從redis返回
         if(result['url'] !== undefined && validateExpire(result['expireAt'])) {
             //如果這筆短網址存在，使用302避免301 expire了照樣會有cache
@@ -350,7 +347,7 @@ const getOriginUrlById = async (ShortId, req, res) => {
         return;
     } catch(e) {
         res.writeHead(400, {"Content-type": "text/plain"});
-        return new ErrorModel(`Error Ocurred`);
+        return new ErrorModel(`Error Ocurred ${e}`);
     }
 };
 ```
@@ -376,24 +373,6 @@ Requests per second:    1913.98 [#/sec] (mean)
 Time per request:       52.247 [ms] (mean)
 Time per request:       0.522 [ms] (mean, across all concurrent requests)
 Transfer rate:          373.83 [Kbytes/sec] received
-
-Connection Times (ms)
-              min  mean[+/-sd] median   max
-Connect:        0    0   0.4      0       1
-Processing:    20   52  10.1     52      83
-Waiting:        8   41   6.8     41      66
-Total:         21   52  10.1     52      83
-
-Percentage of the requests served within a certain time (ms)
-  50%     52
-  66%     56
-  75%     59
-  80%     61
-  90%     65
-  95%     68
-  98%     74
-  99%     76
- 100%     83 (longest request)
 ```
 
 `無redis，只有mysql`
@@ -411,24 +390,6 @@ Requests per second:    1169.68 [#/sec] (mean)
 Time per request:       85.493 [ms] (mean)
 Time per request:       0.855 [ms] (mean, across all concurrent requests)
 Transfer rate:          228.45 [Kbytes/sec] received
-
-Connection Times (ms)
-              min  mean[+/-sd] median   max
-Connect:        0    0   0.4      0       1
-Processing:    21   85   5.0     84     102
-Waiting:        9   85   5.0     84     102
-Total:         22   85   5.0     84     102
-
-Percentage of the requests served within a certain time (ms)
-  50%     84
-  66%     86
-  75%     87
-  80%     88
-  90%     90
-  95%     93
-  98%     96
-  99%     97
- 100%    102 (longest request)
 ```
 
 * 同時一千個請求，總共訪問十萬次有效短網址
@@ -448,24 +409,6 @@ Requests per second:    1481.74 [#/sec] (mean)
 Time per request:       674.883 [ms] (mean)
 Time per request:       0.675 [ms] (mean, across all concurrent requests)
 Transfer rate:          289.40 [Kbytes/sec] received
-
-Connection Times (ms)
-              min  mean[+/-sd] median   max
-Connect:        0    1  11.4      0     516
-Processing:   114  668 261.7    437    1447
-Waiting:        7  497 270.5    381    1308
-Total:        115  669 261.8    438    1448
-
-Percentage of the requests served within a certain time (ms)
-  50%    438
-  66%    922
-  75%    927
-  80%    930
-  90%    936
-  95%    940
-  98%    952
-  99%    962
- 100%   1448 (longest request)
 ```
 
 `無redis，只有mysql`
@@ -483,24 +426,6 @@ Requests per second:    1129.81 [#/sec] (mean)
 Time per request:       885.103 [ms] (mean)
 Time per request:       0.885 [ms] (mean, across all concurrent requests)
 Transfer rate:          220.67 [Kbytes/sec] received
-
-Connection Times (ms)
-              min  mean[+/-sd] median   max
-Connect:        0    0   0.4      0       6
-Processing:   225  880  42.1    878    1028
-Waiting:        3  879  42.2    877    1027
-Total:        225  880  42.1    878    1028
-
-Percentage of the requests served within a certain time (ms)
-  50%    878
-  66%    882
-  75%    885
-  80%    887
-  90%    896
-  95%    923
-  98%    970
-  99%   1000
- 100%   1028 (longest request)
 ```
 
 ### 2. 還可不可以優化性能?
@@ -568,24 +493,6 @@ Requests per second:    1896.64 [#/sec] (mean)
 Time per request:       52.725 [ms] (mean)
 Time per request:       0.527 [ms] (mean, across all concurrent requests)
 Transfer rate:          370.44 [Kbytes/sec] received
-
-Connection Times (ms)
-              min  mean[+/-sd] median   max
-Connect:        0    0   0.5      0       1
-Processing:     6   52   4.0     52      87
-Waiting:        6   39   8.6     40      70
-Total:          6   52   4.0     53      87
-
-Percentage of the requests served within a certain time (ms)
-  50%     53
-  66%     53
-  75%     54
-  80%     54
-  90%     55
-  95%     56
-  98%     58
-  99%     59
- 100%     87 (longest request)
 ```
 
 
@@ -605,33 +512,17 @@ Requests per second:    1777.33 [#/sec] (mean)
 Time per request:       562.642 [ms] (mean)
 Time per request:       0.563 [ms] (mean, across all concurrent requests)
 Transfer rate:          347.13 [Kbytes/sec] received
-
-Connection Times (ms)
-              min  mean[+/-sd] median   max
-Connect:        0    0   0.5      0       2
-Processing:    68  560  38.2    556     687
-Waiting:        3  299 159.2    299     679
-Total:         68  560  38.2    557     687
-
-Percentage of the requests served within a certain time (ms)
-  50%    557
-  66%    562
-  75%    567
-  80%    573
-  90%    589
-  95%    619
-  98%    641
-  99%    656
- 100%    687 (longest request)
 ```
 
-### 3. 是否還有其他方式優化?
+### 3. 性能優化和擴充提案
 
-* redis使用cluster
+- [ ] Proposal A. 新增nginx用反向代理並實現限流機制。
+- [ ] Proposal B. 依據nginx產生的acces.log進行資料蒐集，使用cronjob定期新增至資料庫，建立後台頁面，實時分析哪個時段和哪個url有大量需求，進而後續處理。
+- [ ] Proposal C. 將本專案自增id順序新增機制改成隨機新增方法。
 
-* mysql使用cluster
 
-> 我功力還沒這麼深qq
+> 參考文獻: ...
+
 
 ### 4. 結論
 
@@ -640,6 +531,32 @@ Percentage of the requests served within a certain time (ms)
 * 使用pm2來管理nodejs cluster，增加性能是可行的
 
 ## 四、單元測試
+
+
+File                  | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s                                                                                      
+----------------------|---------|----------|---------|---------|-------------------------
+All files             |   83.91 |    70.42 |   96.77 |   83.93 | 
+ Dcard                |     100 |      100 |     100 |     100 | 
+  app.js              |     100 |      100 |     100 |     100 | 
+ Dcard/bin            |     100 |      100 |     100 |     100 | 
+  www.js              |     100 |      100 |     100 |     100 | 
+ Dcard/src/config     |   78.57 |    66.66 |     100 |   78.57 | 
+  db.js               |      75 |    66.66 |     100 |      75 | 28-39
+  url.js              |   83.33 |    66.66 |     100 |   83.33 | 9
+ Dcard/src/controller |    73.8 |       75 |     100 |    73.8 | 
+  index.js            |    73.8 |       75 |     100 |    73.8 | 16-23,31-32,37-38,64-65
+ Dcard/src/db         |   74.41 |       50 |     100 |   74.41 | 
+  mysql.js            |   73.68 |       50 |     100 |   73.68 | 19,24-25,35-36
+  redis.js            |      75 |       50 |     100 |      75 | 20-21,38,41-42,47      
+ Dcard/src/model      |      80 |      100 |   66.66 |      80 | 
+  index.js            |      80 |      100 |   66.66 |      80 | 6-8
+ Dcard/src/router     |     100 |      100 |     100 |     100 | 
+  index.js            |     100 |      100 |     100 |     100 | 
+ Dcard/src/utils      |   91.22 |    68.42 |     100 |    92.3 | 
+  const.js            |     100 |      100 |     100 |     100 | 
+  post.js             |      75 |       75 |     100 |      75 | 12-13,24-25
+  response.js         |   88.88 |       50 |     100 |     100 | 3-11
+  url.js              |     100 |      100 |     100 |     100 | 
 
 ## 五、程式架構
 
@@ -677,9 +594,6 @@ Percentage of the requests served within a certain time (ms)
 │       ├── session.js
 │       └── url.js
 └── test
-    ├── db
-    │   ├── mysql.test.js
-    │   └── redis.test.js
     ├── router
     │   └── index.test.js
     └── utils
@@ -690,13 +604,14 @@ Percentage of the requests served within a certain time (ms)
 ### 2. 引用三方lib
 
 * 主要引用mysql、redis、xss這三種作為本次作業的lib
+
     * mysql、redis主要是讓nodejs連接兩個資料庫
 
     * xss用來避免mysql被插入惡意程式片段
 
 * cross-env：方便在npm run指令的時候，建立環境變數，ex. mode=dev
 
-* jest：用來跑unit test，不過我是初學者...
+* jest、supertest：jest用來跑測試的lib，supertest可以測試api是否符合預期
 
 * nodemon、pm2：nodejs的開發(nodemon)和部屬(pm2)工具
 
@@ -711,14 +626,16 @@ Percentage of the requests served within a certain time (ms)
     "example": "example"
   },
   "scripts": {
-    "test": "cross-env NODE_ENV=dev jest --forceExit --coverage --verbose",
+    "test": "cross-env NODE_ENV=test jest --forceExit --coverage --verbose",
     "dev": "cross-env NODE_ENV=dev nodemon ./bin/www.js",
     "prd-d": "cross-env NODE_ENV=production pm2-runtime start ./bin/www.js -i 4",
     "prd": "cross-env NODE_ENV=production pm2 start ./bin/www.js -i 4",
     "restart": "cross-env NODE_ENV=production pm2 restart www",
     "list": "cross-env NODE_ENV=production pm2 list",
     "stop": "cross-env NODE_ENV=production pm2 stop www",
-    "delete": "cross-env NODE_ENV=production pm2 delete www"
+    "delete": "cross-env NODE_ENV=production pm2 delete www",
+    "logs": "cross-env NODE_ENV=production pm2 logs www",
+    "flush": "pm2 flush"
   },
   "author": "POABOB",
   "license": "ISC",
@@ -726,11 +643,12 @@ Percentage of the requests served within a certain time (ms)
     "cross-env": "^6.0.0",
     "jest": "^27.5.1",
     "nodemon": "^2.0.15",
-    "pm2": "^5.2.0"
+    "pm2": "^5.2.0",
+    "supertest": "^6.2.2"
   },
   "dependencies": {
     "mysql": "^2.17.1",
-    "redis": "^4.0.4",
+    "redis": "^3.1.2",
     "xss": "^1.0.6"
   }
 }
@@ -744,28 +662,8 @@ Percentage of the requests served within a certain time (ms)
 ```gherkin=
 const http = require('http');
 
-const PORT = 80;
+const PORT = 9000;
 const serverHandler = require('../app');
-
-const { connectRedis } = require('../src/db/redis');
-const { connectMysql, handleError } = require('../src/db/mysql');
-const { MYSQL_CONF, REDIS_CONF } = require('../src/config/db');
-
-// 初始化redis
-try {
-    connectRedis({ port: REDIS_CONF.port, host: REDIS_CONF.host });
-} catch (e) {
-    console.error("Redis connetion/init error:" + e.stack);
-    process.exit(1);
-}
-
-// 初始化mysql
-try {
-    connectMysql(MYSQL_CONF);
-} catch (e) {
-    console.error("Mysql connetion/init error:" + e.stack);
-    process.exit(1);
-}
 
 const server = http.createServer(serverHandler);
 
@@ -791,10 +689,9 @@ const serverHandler = (req, res) => {
 	req.path = url.split('?')[0];
 
     getPostData(req, res).then(postData => {
-        //獲取postData
 		req.body = postData;
+		
 		//Router註冊
-		/*******************************/
 		//處理index路由
 		const index =  handleIndexRouter(req, res);
 		if(index) {
@@ -808,8 +705,6 @@ const serverHandler = (req, res) => {
 		res.end();
 	});
 };
-
-module.exports = serverHandler;
 ```
 
 * 使用stream的方式去擷取data，並判斷method和header是否正確
@@ -817,42 +712,36 @@ module.exports = serverHandler;
 `src/utils/post.js`
 ```gherkin=
 // 獲取post過來的data
-const getPostData = (req, res) => {
-	const promise = new Promise((resolve, reject) => {
-		//如果方法不是POST，返回空
-		if(req.method === 'GET' || req.method === 'DELETE') {
-			resolve({});
-			return;
-		}
-		//如果header不是json，返回空
-		if(req.headers['content-type'] !== 'application/json') {
-			resolve({});
-			return;
-		}
-
-		let postData = '';
-		req.on('data', chunk =>{
-			postData += chunk.toString();
-		});
-
-		//如果沒有POST資料，返回空
-		req.on('end', () => {
-			if(!postData) {
+module.exports = {
+	getPostData: (req, res) => {
+		return new Promise((resolve, reject) => {
+			//如果方法不是POST，返回空
+			if(req.method === 'GET' || req.method === 'DELETE') {
+				resolve({});
+				return;
+			}
+			//如果header不是json，返回空
+			if(req.headers['content-type'] !== 'application/json') {
 				resolve({});
 				return;
 			}
 
-			resolve(
-				JSON.parse(postData)
-			);
+			let postData = '';
+			req.on('data', chunk =>{
+				postData += chunk.toString();
+			});
+
+			//如果沒有POST資料，返回空
+			req.on('end', () => {
+				if(!postData) {
+					resolve({});
+					return;
+				}
+
+				resolve(JSON.parse(postData));
+			});
 		});
-	});
-
-	return promise;
-};
-
-module.exports = {
-    getPostData
+	}
 }
 ```
 
@@ -880,8 +769,6 @@ const handleIndexRouter = (req, res) => {
 		return insertOriginUrl(req.body.url, req.body.expireAt);
 	}
 };
-
-module.exports = handleIndexRouter;
 ```
 
 * mysql功能模組化
@@ -889,40 +776,44 @@ module.exports = handleIndexRouter;
 `src/db/mysql.js`
 ```gherkin=
 const mysql = require('mysql');
-const { promisify } = require('util');
-let conn, query;
+const { MYSQL_CONF } = require('../config/db');
 
-const connectMysql = async (config) => {
-	return new Promise((resolve, reject) => {
-		try {
-			conn = mysql.createConnection(config);
-			query = promisify(conn.query).bind(conn);
-			conn.on('error', handleError);
-			resolve(conn);
-		} catch (err) {
-			reject(err);
-		}
-	});
-}
-
-const exec = async (sql) => {
-	return query(sql);
-}
-
-const handleError = (err) => {
-	if (err) {
-	  	// 如果是連線斷開，自動重新連線
-		if (err.code === 'PROTOCOL_CONNECTION_LOST') {
-			connectMysql();
-		} else {
-			console.error(err.stack || err);
-		}
-	}
-}
-
+//不使用箭頭函數原因是因為不能使用this
 module.exports = {
-	connectMysql, 
-	exec,
+	config: MYSQL_CONF,
+	pool: null,
+	create: function () {
+		if(!this.pool) {
+			this.pool = mysql.createPool(this.config)
+		}
+	},
+	exec: async function (sql)  {
+		return new Promise(( resolve, reject ) => {
+			try {
+				this.create();
+				this.pool.getConnection(function(err, connection) {
+					if (err) {
+						reject(err);
+					} else {
+						connection.query(sql, (err, result) => {
+
+							if (err) {
+								reject(err);
+									console.error(err);
+							} else {
+								resolve(result);
+								
+							}
+							connection.release();
+						});
+					}
+				});
+			} catch (e) {
+				reject(e);
+				console.error(e);
+			}
+		});
+	},
 	escape: mysql.escape
 }
 ```
@@ -932,38 +823,57 @@ module.exports = {
 `src/db/redis.js`
 ```gherkin=
 const redis = require('redis');
-const { promisify } = require('util');
-let client, setAsync, getAsync;
+const { REDIS_CONF } = require('../config/db');
 
-const connectRedis = async (config) => {
-	return new Promise((resolve, reject) => {
-		try {
-			client = redis.createClient(config.port, config.host);
-			setAsync = promisify(client.set).bind(client);
-			getAsync = promisify(client.get).bind(client);
-			resolve(client);
-		} catch (err) {
-			reject(err);
-		}
-	});
-}
-
-
-const set = async (key, val) => {
-	if(typeof val === 'object') {
-		val = JSON.stringify(val);
-	}
-  	return setAsync(key, val);
-}
-
-const get = async (key) => {
-	return getAsync(key);
-}
-
+// 生成redis的client
+const client = redis.createClient(REDIS_CONF.port, REDIS_CONF.host);
+// client.connect();
+// client.on('error', err => {
+// 	console.log(err);
+// });
 module.exports = {
-	set,
-	get,
-	connectRedis
+	// 存储值
+	set: async (key, val) => {
+		return new Promise((resolve, reject) => {
+			if(typeof val === 'object') {
+				val = JSON.stringify(val);
+			}
+	
+			client.set(key, val, (err, res) => {
+				if(err) {
+					reject(err);
+					return;
+				}
+	
+				try {
+					resolve(JSON.parse(res));
+				} catch(ex) {
+					resolve(res);
+				}
+			});
+		});
+	},
+ 
+	// 获取string
+	get: async (key) => {
+		return new Promise((resolve, reject) => {
+			client.get(key, (err, val) => {
+				if (err) {
+					reject(err);
+				}else{
+					if(val === null) {
+							resolve(null);
+							return;
+					}
+					try {
+						resolve(JSON.parse(val));
+					} catch (err) {
+						reject(err);
+					}
+				}
+			});
+		});
+	}
 }
 ```
 
@@ -971,27 +881,23 @@ module.exports = {
 
 `src/model/index.js`
 ```gherkin=
-const { exec, escape } = require('../db/mysql');
+const mysql = require('../db/mysql');
 const xss = require('xss')
 
 //查
 const getURL = async (id) => {
-	let sql = `select url, expireAt from url where id = ${xss(escape(id))} limit 1;`;
+	let sql = `select url, expireAt from url where id = ${xss(mysql.escape(id))} limit 1;`;
 	//返回promise
-	return await exec(sql);
+	return mysql.exec(sql);
+
 };
 
 //增
 const insertURL = async (url, expireAt) => {
-	let sql = `INSERT INTO url (url, expireAt) VALUES (${xss(escape(url))},${xss(escape(expireAt))});`;
-	return await exec(sql).then(data => {
+	let sql = `INSERT INTO url (url, expireAt) VALUES (${xss(mysql.escape(url))},${xss(mysql.escape(expireAt))});`;
+	return mysql.exec(sql).then(data => {
 		return { id: data.insertId }
 	});
-};
-
-module.exports = {
-	getURL,
-	insertURL,
 };
 ```
 

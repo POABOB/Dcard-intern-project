@@ -19,15 +19,15 @@ services:
         restart: always
         ports:
             - "6379:6379"
-    nodejs:
-        build: .
-        restart: always
-        command: npm run prd-d
-        volumes:
-            - .:/app
-            - /app/node_modules
-        ports:
-            - "9000:80"
-        depends_on:
-            - mysql
-            - redis 
+    # nodejs:
+    #     build: .
+    #     restart: always
+    #     command: npm run prd-d
+    #     volumes:
+    #         - .:/app
+    #         - /app/node_modules
+    #     ports:
+    #         - "9000:80"
+    #     depends_on:
+    #         - mysql
+    #         - redis 

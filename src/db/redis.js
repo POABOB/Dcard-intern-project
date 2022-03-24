@@ -9,8 +9,8 @@ const client = redis.createClient(REDIS_CONF.port, REDIS_CONF.host);
 // });
 module.exports = {
 	// 存储值
-	set: set = async (key, val) => {
-		const p = new Promise((resolve, reject) => {
+	set: async (key, val) => {
+		return new Promise((resolve, reject) => {
 			if(typeof val === 'object') {
 				val = JSON.stringify(val);
 			}
@@ -28,12 +28,11 @@ module.exports = {
 				}
 			});
 		});
-		return p;
 	},
  
 	// 获取string
-	get: get = async (key) => {
-		const p = new Promise((resolve, reject) => {
+	get: async (key) => {
+		return new Promise((resolve, reject) => {
 			client.get(key, (err, val) => {
 				if (err) {
 					reject(err);
@@ -50,6 +49,5 @@ module.exports = {
 				}
 			});
 		});
-		return p;
 	}
 }

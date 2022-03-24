@@ -11,8 +11,8 @@ const serverHandler = (req, res) => {
 
     getPostData(req, res).then(postData => {
 		req.body = postData;
+		
 		//Router註冊
-		/*******************************/
 		//處理index路由
 		const index =  handleIndexRouter(req, res);
 		if(index) {

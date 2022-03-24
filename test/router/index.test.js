@@ -1,5 +1,3 @@
-const { expect } = require('@jest/globals');
-const { test } = require('jest-circus');
 const request = require('supertest');
 const server = require('../../bin/www');
 
@@ -76,9 +74,9 @@ describe("POST /api/v1/urls", () => {
             expect(Object.keys(response).length).toBe(1);
             expect(res.statusCode).toBe(400);
     });
-  });
+});
 
-  describe("GET /:ShortId", () => {
+describe("GET /:ShortId", () => {
     it('使用正確ShortId測試 GET /:ShortId', async () => {
         const res = await request(server).get(`/${ShortId}`);
         expect(res.statusCode).toBe(302);
@@ -95,4 +93,4 @@ describe("POST /api/v1/urls", () => {
         expect(res.text).toBe('GET /sidufhsiufbwuibsusdi 404 Not Found\n');
         expect(res.statusCode).toBe(404);
     });
-  });
+});
