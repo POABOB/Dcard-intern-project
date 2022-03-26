@@ -151,7 +151,7 @@ npm run prd
 
 ## 二、題目
 
-![Dcard 題目](/images/2022-dcard-backend-intern-project/a.jpg)
+![Dcard 題目](/img/a.jpg)
 
 ## 三、解題思路
 
@@ -197,7 +197,7 @@ npm run prd
 
 * 程式流程
 
-![API 1](/images/2022-dcard-backend-intern-project/b.jpg)
+![API 1](/img/b.jpg)
 
 * 
 
@@ -322,7 +322,7 @@ const _64Bit = new Array( "N", "O", "P", "4", "5", "6", "7", "8", "9", "m", "Q",
 
 * 程式流程
 
-![API 2](/images/2022-dcard-backend-intern-project/c.jpg)
+![API 2](/img/c.jpg)
 
 
 `src/controller/index.js`
