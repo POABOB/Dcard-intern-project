@@ -68,7 +68,7 @@ docker-compose up -d
 ```gherkin=
 CREATE DATABASE IF NOT EXISTS shortURL;
 USE shortURL;
-CREATE TABLE IF NOT EXISTS `shortURL`.`url` ( `id` INT UNSIGNED NOT NULL AUTO_INCREMENT , `url` TEXT NOT NULL , `expireAt` INT NOT NULL , PRIMARY KEY (`id`)) ENGINE = InnoDB
+CREATE TABLE IF NOT EXISTS `shortURL`.`url` ( `id` INT UNSIGNED NOT NULL AUTO_INCREMENT , `url` TEXT NOT NULL , `expireAt` INT NOT NULL , PRIMARY KEY (`id`)) ENGINE = InnoDB;
 ```
 * 配置連線資料庫的config
 
@@ -151,17 +151,17 @@ npm run prd
 
 ## 二、題目
 
-![Dcard 題目](./img/a.jpg)
+![Dcard 題目](/images/2022-dcard-backend-intern-project/a.jpg)
 
 ## 三、解題思路
 
 ### 1. 題目解釋
 
-* 使用 Golang 或 Nodejs 其中一個語言建立兩個Restful API(包含Unit Test)
+* 使用 Golang 或 Nodejs 其中一個語言建立兩個Restful API(包含**Unit Test**)
 	
-	1. 可以上傳一個URL網址和過期時間，並且返回一個被縮短好的URL
+	1. **可以上傳一個URL網址和過期時間，並且返回一個被縮短好的URL**
 	
-	2. 判斷系統生成的短網址是否存在且有無到期，如果到期和不存在，則返回404；反之，為原本URL進行轉址
+	2. **判斷系統生成的短網址是否存在且有無到期，如果到期和不存在，則返回404；反之，為原本URL進行轉址**
 
 * 可以使用任意三方函式庫和資料庫或Cache資料庫
 
@@ -169,24 +169,40 @@ npm run prd
 
 * 不用Auth
 
-* 要考慮到客戶端同時大量請求短網址**(包括不存在的短網址)**的問題，將性能納入考量
+* **要考慮到客戶端同時大量請求短網址(包括不存在的短網址)的問題，將性能納入考量**
 
 ### 2. 程式邏輯
 
-#### API 1 => POST /api/v1/urls
+> 這項作業有三大重點：
+> 1. 製作兩個Restful API，分別是**產生短網址(POST)**和**轉址短網址(GET)**。
+> 
+> 2. 要考慮到**Client端大量同時請求**的性能表現，並且做出解決方案。
+> 
+> 3. 使用測試(Unit、Integration、E2E)來避免開發後難以找出程式碼的錯誤。
 
-* 程式流程
+#### a. 產生短網址：POST /api/v1/urls
 
-![API 1](./img/b.jpg)
 
 * 方法
 
 	1. ~~短網址的 url_id 必須是一個唯一值，如果說使用md5取前幾位數的話，那麼很容易產生碰撞，所以不適合。~~
 	
-	2. 使用**64進位**的方式，將url和expireAt插入mysql中返回的**自增id(唯一且以主鍵搜尋很快)**作轉換
+	2. ~~使用三方函式庫[shortid](https://www.npmjs.com/package/shortid)，自動生成短網址(我覺得都是解題，對於程式的流程解釋相對來說是一個必要的功課，不採用)~~。
+
+    3. 手寫兩個function可以使用**64進位**的方式，將 `url` 和 `expireAt` 資料插入mysql中返回的**自增id(唯一且以主鍵搜尋很快)**作轉換
+
+        * 並且將自增id和資料插入Redis(查詢較Mysql快)
+        
+        * 最後返回要求格式
+
+* 程式流程
+
+![API 1](/images/2022-dcard-backend-intern-project/b.jpg)
+
+* 
 
 `src/controller/index.js`
-```gherkin=
+```js
 const { get, set } = require('../db/redis');
 const { ErrorModel, BaseModel } = require('../utils/response');
 const { HOST_CONF } = require('../config/url');
@@ -216,8 +232,8 @@ const insertOriginUrl = async (req, res) => {
         // 返回BaseModel
         return new BaseModel(ShortId, HOST_CONF + ShortId);
     } catch(e) {
-        res.writeHead(400, {"Content-type": "text/plain"});
-        return new ErrorModel(`Error Ocurred ${e}`);
+        res.writeHead(500, {"Content-type": "text/plain"});
+        return new ErrorModel(`${e.stack}`);
     }
 };
 ```
@@ -229,7 +245,7 @@ const insertOriginUrl = async (req, res) => {
 	* 如果之後想要改更長，可以使用unsigned bigint(2 ^ 64 - 1)，就可以讓字串數增加至多到10位數字串(64 ^ 10)
 
 `src/utils/url.js`
-```gherkin=
+```js
 const { _64Bit, urlMaxLength } = require('./const');
 
 //目前使用5位字串(64 ^ 5 = 1,073,741,824)，原因是我使用unsigned int (4,294,967,295)
@@ -277,39 +293,40 @@ const convertShortIdToId = (ShortId) => {
 	* 我將 A-Z, a-z, 0-9, -, ~ 這些字元打亂順序之後，放入一個陣列當作進位表
 
 `src/utils/const.js`
-```gherkin=
+```js
 const urlMaxLength = 5;
 const datetimeRegex = /((19|2\d)\d\d)-((0[1-9])|(1[0-2]))-((0[1-9])|([1-2]\d)|(3[01]))([ T]{1})(([0-1]\d)|(2[0-3])):(([0-5]\d)):(([0-5]\d))([Z]?)/;
 const _64Bit = new Array( "N", "O", "P", "4", "5", "6", "7", "8", "9", "m", "Q", "R", "S", "X", "Y", "A", "B", "C", "K", "L", "M", "D", "E", "T", "U", "V", "W", "F", "a", "b", "c", "d", "e", "f", "r", "s", "t", "u", "v", "w", "G", "H", "I", "J", "1", "2", "3", "-", "~", "Z", "g", "h", "i", "j", "k", "l", "n", "o", "p", "q", "x", "y", "z", "0",);
 ```
 
-#### API 2 => GET /:ShortId([a-zA-Z0-9\-~]{5})
-
-* 程式流程
-
-![API 2](./img/c.jpg)
-
+#### b. 轉址短網址：GET /:ShortId([a-zA-Z0-9\-~]{5})
 
 * 方法
 
 	* 由於後端性能的問題主要出在 網路頻寬速度 和 Disk I/O，在程式碼中就必須為資料庫方面減少負荷，多多採用記憶體作為一個快速的解決方案
 
-	* 所以我會先讓nodejs先去從redis(記憶體資料庫)中查找id是否存在
+	* 所以我會先讓Nodejs先去從Redis中查找id是否存在
 
 	* 有則，判斷資料是否有效且有無過期，然後返回404或302
 
 		* 使用302(暫時轉址)原因是因為短網址是有期限的，所以每次轉址都必須讓server判斷資料是否有效，雖然301(永久轉址)性能較好，但是他會被cache在瀏覽器，導致無法到server判斷資料
 
-	* 無則，向mysql(I/O資料庫)查找id是否存在
+	* 無則，向Mysql查找id是否存在
 
-	* 若有該筆id，使用異步的方式儲存到redis並判斷資料是否有效且有無過期，然後返回404或302
+	    * 若有該筆id，使用異步的方式儲存到Redis並判斷資料是否有效且有無過期，然後返回404或302
 
-	* 若無該筆id，異步新增一個{ url: null, expireAt: Date.now() / 1000 }資料到redis，返回404
-		* 因為題目中有提到如果該筆資料不存在那一直查找不存在的資料也是浪費性能，不如就儲存一個無效值在redis，直接返回404
+	    * 若無該筆id，異步新增一個{ url: null, expireAt: Date.now() / 1000 }資料到Redis，返回404
+
+		    * 因為題目中有提到如果該筆資料不存在那一直查找不存在的資料也是浪費性能，不如就儲存一個無效值在Redis，直接返回404
+
+
+* 程式流程
+
+![API 2](/images/2022-dcard-backend-intern-project/c.jpg)
 
 
 `src/controller/index.js`
-```gherkin=
+```js
 const { get, set } = require('../db/redis');
 const { ErrorModel, BaseModel } = require('../utils/response');
 const { HOST_CONF } = require('../config/url');
@@ -321,6 +338,8 @@ const getOriginUrlById = async (req, res, ShortId) => {
     try {
         //先將64進位的id轉化10進位id
         const id = convertShortIdToId(ShortId);
+
+        //搜尋Redis
         let result = await get(id);
         
         if(result === null) {
@@ -346,8 +365,8 @@ const getOriginUrlById = async (req, res, ShortId) => {
         res.end();
         return;
     } catch(e) {
-        res.writeHead(400, {"Content-type": "text/plain"});
-        return new ErrorModel(`Error Ocurred ${e}`);
+        res.writeHead(500, {"Content-type": "text/plain"});
+        return new ErrorModel(`${e.stack}`);
     }
 };
 ```
@@ -356,10 +375,10 @@ const getOriginUrlById = async (req, res, ShortId) => {
 
 ### 1. 對比有使用redis和沒使用redis的性能
 
-* 同時一百個請求，總共訪問一萬次有效短網址
+#### a. 同時一百個請求，總共訪問一萬次有效短網址
 
 `有redis`
-```gherkin=
+```bash
 C:\Users\poabob\Desktop> .\ab.exe -n 10000 -c 100 http://localhost/NNNNB
 
 Concurrency Level:      100
@@ -376,7 +395,7 @@ Transfer rate:          373.83 [Kbytes/sec] received
 ```
 
 `無redis，只有mysql`
-```gherkin=
+```bash
 C:\Users\poabob\Desktop> .\ab.exe -n 10000 -c 100 http://localhost/NNNNB
 
 Concurrency Level:      100
@@ -392,10 +411,10 @@ Time per request:       0.855 [ms] (mean, across all concurrent requests)
 Transfer rate:          228.45 [Kbytes/sec] received
 ```
 
-* 同時一千個請求，總共訪問十萬次有效短網址
+#### b. 同時一千個請求，總共訪問十萬次有效短網址
 
 `有redis`
-```gherkin=
+```bash
 C:\Users\poabob\Desktop> .\ab.exe -n 100000 -c 1000 http://localhost/NNNNB
 
 Concurrency Level:      1000
@@ -412,7 +431,7 @@ Transfer rate:          289.40 [Kbytes/sec] received
 ```
 
 `無redis，只有mysql`
-```gherkin=
+```bash
 C:\Users\poabob\Desktop> .\ab.exe -n 100000 -c 1000 http://localhost/NNNNB
 
 Concurrency Level:      1000
@@ -430,18 +449,20 @@ Transfer rate:          220.67 [Kbytes/sec] received
 
 ### 2. 還可不可以優化性能?
 
-* 因為nodejs是單個porcess的設計，我們可以使用pm2來實現多個nodejs process 提高效率
+#### a. 使用Pm2
+ 
+* 因為Nodejs是單線程的設計，我們可以使用pm2來實現多個Nodejs Cluster提高效率
 
 * 安裝
 
-```gherkin=
+```bash
 npm i pm2 --save-dev
 ```
 
 * 新增一些pm2的常用指令， -i 是要啟用的process數量
 
 `package.json`
-```gherkin=
+```json
 "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "cross-env NODE_ENV=dev nodemon ./bin/www.js",
@@ -455,7 +476,7 @@ npm i pm2 --save-dev
 
 * 開啟服務
 
-```gherkin=
+```bash
 C:\Users\poabob\Desktop\Dcard> npm run prd     
 
 > Dcard@1.0.0 prd C:\Users\poabob\Desktop\Dcard
@@ -477,9 +498,9 @@ C:\Users\poabob\Desktop\Dcard> npm run prd
 └─────┴────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
 ```
 
-* 同時一百個請求，總共訪問一萬次有效短網址
+#### b. 同時一百個請求，總共訪問一萬次有效短網址
 
-```
+```bash
 C:\Users\poabob\Desktop> .\ab.exe -n 10000 -c 100 http://localhost/NNNNB
 
 Concurrency Level:      100
@@ -496,9 +517,9 @@ Transfer rate:          370.44 [Kbytes/sec] received
 ```
 
 
-* 同時一千個請求，總共訪問十萬次有效短網址
+#### c. 同時一千個請求，總共訪問十萬次有效短網址
 
-```
+```bash
 C:\Users\poabob\Desktop> .\ab.exe -n 100000 -c 1000 http://localhost/NNNNB
 
 Concurrency Level:      1000
@@ -514,24 +535,248 @@ Time per request:       0.563 [ms] (mean, across all concurrent requests)
 Transfer rate:          347.13 [Kbytes/sec] received
 ```
 
-### 3. 性能優化和擴充提案
+### 3. 其他擴充提案
 
-- [ ] Proposal A. 新增nginx用反向代理並實現限流機制。
-- [ ] Proposal B. 依據nginx產生的acces.log進行資料蒐集，使用cronjob定期新增至資料庫，建立後台頁面，實時分析哪個時段和哪個url有大量需求，進而後續處理。
-- [ ] Proposal C. 將本專案自增id順序新增機制改成隨機新增方法。
+* Proposal A. 新增Nginx用反向代理、實現限流機制再分析access.log。
+    
+    <!-- * 利用nginx限制流量，避免大量請求導致系統崩潰
 
+    * 利用nginx限制個別ip連線數，預防流量攻擊導致正常用戶無法使用
 
-> 參考文獻: ...
+    * 使用nginx白名單機制，讓自己的ip可以進行壓力測試
+
+    * 藉由分析access.log，將資料新增至資料庫，可供後續資料統計(分析哪個時段流量最高) -->
+
+* [Proposal B. 將本專案自增id順序新增機制改成隨機新增方法。](https://poabob.github.io/2022-03-26/implementation-of-ShortId-with-id-in-order/)
+<!-- 
+    * 預先產生離線所有id
+
+    * 先Redis獲取url_nums(key)查看有沒有數量
+
+    * 沒有，SELECT COUNT(id) FROM WHERE id in (1, 2, ..., 1000) url is NULL;
+
+    * 有，
+
+    * 每一千筆(1 - 1000, 1001 - 2000, ...)資料隨機抽取url為空值
+
+        1. SELECT COUNT(id) FROM WHERE url is NULL LIMIT 1000;
+
+        2. 如果返回為一千，插入Redis -> url_nums = 1000
+
+        3. 
+
+    * 將POST的資料更新至資料庫 -->
 
 
 ### 4. 結論
 
-* redis確實可以替mysql作到提速的作用
+* Redis確實可以替Mysql作到提速的作用
 
-* 使用pm2來管理nodejs cluster，增加性能是可行的
+* 使用pm2來管理Nodejs Cluster，增加性能是可行的
 
-## 四、單元測試
+## 四、測試(Unit Test、Integration Test)
 
+### 1. Unit Test
+
+* 測試ShortId和id雙向轉換
+
+* 驗證日期是否過期
+
+* 驗證url是否合法
+
+`src/utils/url.js`
+```js
+const { validateUrl, validateExpire, convertIdToShortId, convertShortIdToId } = require('../../src/utils/url');
+
+test('id => ShortId', (done) => {
+    const ShortId = convertIdToShortId(1);
+    expect(ShortId).toBe('NNNNO');
+    done();
+})
+
+//convertIdToShortId
+test('ShortId => id to', (done) => {
+    const id = convertShortIdToId('NNNNO');
+    expect(id).toBe(1);
+    done();
+})
+
+//validateExpire
+test('驗證過期', (done) => {
+    const res = validateExpire(1000000000);
+    expect(res).toBe(false);
+    done();
+})
+
+test('驗證未過期', (done) => {
+    const res = validateExpire(5000000000);
+    expect(res).toBe(true);
+    done();
+})
+
+//validateUrl
+test('驗證中文域名', (done) => {
+    const res = validateUrl('http://中文.tw');
+    expect(res).toBe(true);
+    done();
+})
+
+test('驗證錯誤值', (done) => {
+    const res = validateUrl('http://       中文.tw');
+    expect(res).toBe(false);
+    done();
+})
+
+```
+
+* 測試response返回格式
+
+`src/utils/response.js`
+```js
+const { ErrorModel, BaseModel } = require('../../src/utils/response');
+
+test("測試一般response", (done) => {
+    const res = new BaseModel(`NNNNP`, `http://localhost/NNNNP`);
+    expect(res).toEqual({"id": "NNNNP", "shortUrl": "http://localhost/NNNNP"});
+    done();
+});
+
+test("測試錯誤response", (done) => {
+    const res = new ErrorModel(`The post data expireAt =  is invalid!!!`);
+    expect(res).toEqual({"error": "The post data expireAt =  is invalid!!!"});
+    done();
+});
+
+```
+
+
+### 2. Integration Test
+
+* 整合測試前，先新增url_test的測試表
+
+* 測試POST API
+
+* 測試GET API
+
+* 整合測試後，刪除url_test的測試表
+
+`src/route.js`
+```js
+const request = require('supertest');
+const server = require('../../bin/www');
+const mysql = require('../../src/db/mysql');
+
+let ShortId;
+
+
+//測試前新增測試表
+beforeAll(async () => {
+    return await mysql.exec(
+        `CREATE TABLE IF NOT EXISTS shortURL.url_test ( id INT UNSIGNED NOT NULL AUTO_INCREMENT , url TEXT NOT NULL , expireAt INT NOT NULL , PRIMARY KEY (id)) ENGINE = InnoDB;`
+    );
+});
+
+//新增後刪除測試表
+afterAll(async () => {
+    await mysql.exec(`DROP TABLE url_test`)
+});
+  
+
+describe("POST /api/v1/urls", () => {
+    it('使用正確格式測試 POST /api/v1/urls', async () => {
+        const res = await request(server)
+            .post('/api/v1/urls')
+            .send({
+                url: "http://www.google.com",
+                expireAt: "2025-02-02T20:20:20Z"
+            })
+            let response = JSON.parse(res.res.text)
+            ShortId = response.id;
+            expect(response).toHaveProperty('id');
+            expect(response).toHaveProperty('shortUrl');
+            expect(Object.keys(response).length).toBe(2);
+            expect(res.statusCode).toBe(200);
+    });
+
+    it('使用錯誤日期測試 POST /api/v1/urls', async () => {
+        const res = await request(server)
+            .post('/api/v1/urls')
+            .send({
+                url: "http://www.google.com",
+                expireAt: "2025-02-0220:20:20Z"
+            })
+            let response = JSON.parse(res.res.text)
+
+            expect(response).toHaveProperty('error');
+            expect(Object.keys(response).length).toBe(1);
+            expect(res.statusCode).toBe(400);
+    });
+
+    it('使用錯誤url測試 POST /api/v1/urls', async () => {
+        const res = await request(server)
+            .post('/api/v1/urls')
+            .send({
+                url: "htt://www.google.com",
+                expireAt: "2025-02-02T20:20:20Z"
+            })
+            let response = JSON.parse(res.res.text)
+
+            expect(response).toHaveProperty('error');
+            expect(Object.keys(response).length).toBe(1);
+            expect(res.statusCode).toBe(400);
+    });
+
+    it('使用錯誤url變數測試 POST /api/v1/urls', async () => {
+        const res = await request(server)
+            .post('/api/v1/urls')
+            .send({
+                uri: "htt://www.google.com",
+                expireAt: "2025-02-02T20:20:20Z"
+            })
+            let response = JSON.parse(res.res.text)
+
+            expect(response).toHaveProperty('error');
+            expect(Object.keys(response).length).toBe(1);
+            expect(res.statusCode).toBe(400);
+    });
+
+    it('使用錯誤expireAt變數測試 POST /api/v1/urls', async () => {
+        const res = await request(server)
+            .post('/api/v1/urls')
+            .send({
+                uri: "htt://www.google.com",
+                expireat: "2025-02-02T20:20:20Z"
+            })
+            let response = JSON.parse(res.res.text)
+
+            expect(response).toHaveProperty('error');
+            expect(Object.keys(response).length).toBe(1);
+            expect(res.statusCode).toBe(400);
+    });
+});
+
+describe("GET /:ShortId", () => {
+    it('使用正確ShortId測試 GET /:ShortId', async () => {
+        const res = await request(server).get(`/${ShortId}`);
+        expect(res.statusCode).toBe(302);
+    });
+
+    it('使用過短ShortId測試 GET /:ShortId', async () => {
+        const res = await request(server).get(`/a`);
+            expect(res.text).toBe('GET /a 404 Not Found\n');
+            expect(res.statusCode).toBe(404);
+    });
+
+    it('使用過長ShortId測試 GET /:ShortId', async () => {
+        const res = await request(server).get(`/sidufhsiufbwuibsusdi`);
+        expect(res.text).toBe('GET /sidufhsiufbwuibsusdi 404 Not Found\n');
+        expect(res.statusCode).toBe(404);
+    });
+});
+
+```
+
+### 3. 測試結果
 
 File                  | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s                                                                                      
 ----------------------|---------|----------|---------|---------|-------------------------
@@ -562,7 +807,7 @@ All files             |   83.91 |    70.42 |   96.77 |   83.93 |
 
 ### 1. 目錄結構
 
-```gherkin=
+```bash
  C:\Users\poabob\Desktop> tree -I 'node_modules|img'
 .
 ├── app.js
@@ -601,7 +846,7 @@ All files             |   83.91 |    70.42 |   96.77 |   83.93 |
         └── url.test.js
 ```
 
-### 2. 引用三方lib
+### 2. 引用的三方lib
 
 * 主要引用mysql、redis、xss這三種作為本次作業的lib
 
@@ -616,7 +861,7 @@ All files             |   83.91 |    70.42 |   96.77 |   83.93 |
 * nodemon、pm2：nodejs的開發(nodemon)和部屬(pm2)工具
 
 `package.json`
-```gherkin=
+```json
 {
   "name": "Dcard",
   "version": "1.0.0",
@@ -656,10 +901,10 @@ All files             |   83.91 |    70.42 |   96.77 |   83.93 |
 
 ### 3. 程式解析
 
-* 執行檔案，主要是連接資料庫和創建http服務
+* 執行檔案，主要是創建http服務
 
 `bin/www.js`
-```gherkin=
+```js
 const http = require('http');
 
 const PORT = 9000;
@@ -671,12 +916,14 @@ server.listen(PORT);
 console.log(`Listening on port ${PORT}...Press CTRL-C to stop.`);
 ```
 
-* 獲取url path
-* 獲取postData
-* Router判斷
+1. 獲取url path
+
+2. 獲取postData
+
+3. Router判斷
 
 `app.js`
-```gherkin=
+```js
 const { getPostData } = require('./src/utils/post');
 const handleIndexRouter = require('./src/router/index');
 
@@ -710,7 +957,7 @@ const serverHandler = (req, res) => {
 * 使用stream的方式去擷取data，並判斷method和header是否正確
 
 `src/utils/post.js`
-```gherkin=
+```js
 // 獲取post過來的data
 module.exports = {
 	getPostData: (req, res) => {
@@ -746,10 +993,11 @@ module.exports = {
 ```
 
 * 判斷method和用正則來判斷url path是否正確，如果沒有就不return，直接404
+
 * 原本想要使用path-to-regexp來判斷url path，但其實也只有一個路由需要判斷，所以決定手寫
 
 `src/router/index.js`
-```gherkin=
+```js
 const { getOriginUrlById, insertOriginUrl } = require("../controller/index");
 
 const handleIndexRouter = (req, res) => {
@@ -771,10 +1019,10 @@ const handleIndexRouter = (req, res) => {
 };
 ```
 
-* mysql功能模組化
+* Mysql功能模組化
 
 `src/db/mysql.js`
-```gherkin=
+```js
 const mysql = require('mysql');
 const { MYSQL_CONF } = require('../config/db');
 
@@ -787,7 +1035,7 @@ module.exports = {
 			this.pool = mysql.createPool(this.config)
 		}
 	},
-	exec: async function (sql)  {
+	exec: async function (sql, values)  {
 		return new Promise(( resolve, reject ) => {
 			try {
 				this.create();
@@ -795,7 +1043,7 @@ module.exports = {
 					if (err) {
 						reject(err);
 					} else {
-						connection.query(sql, (err, result) => {
+						connection.query(sql, values, (err, result) => {
 
 							if (err) {
 								reject(err);
@@ -818,10 +1066,10 @@ module.exports = {
 }
 ```
 
-* redis功能模組化
+* Redis功能模組化
 
 `src/db/redis.js`
-```gherkin=
+```js
 const redis = require('redis');
 const { REDIS_CONF } = require('../config/db');
 
@@ -880,13 +1128,15 @@ module.exports = {
 * 執行sql語法，並返回結果
 
 `src/model/index.js`
-```gherkin=
+```js
 const mysql = require('../db/mysql');
 const xss = require('xss')
 
+const env = process.env.NODE_ENV;
+const tableName = `url${(env === 'test') ? '_test' : ''}`
 //查
 const getURL = async (id) => {
-	let sql = `select url, expireAt from url where id = ${xss(mysql.escape(id))} limit 1;`;
+	let sql = `select url, expireAt from ${tableName} where id = ${xss(mysql.escape(id))} limit 1;`;
 	//返回promise
 	return mysql.exec(sql);
 
@@ -894,10 +1144,15 @@ const getURL = async (id) => {
 
 //增
 const insertURL = async (url, expireAt) => {
-	let sql = `INSERT INTO url (url, expireAt) VALUES (${xss(mysql.escape(url))},${xss(mysql.escape(expireAt))});`;
+	let sql = `INSERT INTO ${tableName} (url, expireAt) VALUES (${xss(mysql.escape(url))},${xss(mysql.escape(expireAt))});`;
 	return mysql.exec(sql).then(data => {
 		return { id: data.insertId }
 	});
+};
+
+module.exports = {
+	getURL,
+	insertURL,
 };
 ```
 

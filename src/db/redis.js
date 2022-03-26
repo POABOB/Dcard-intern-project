@@ -49,5 +49,9 @@ module.exports = {
 				}
 			});
 		});
+	},
+	quit: () => {
+		client.quit();
+		process.exit();
 	}
 }

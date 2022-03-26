@@ -1,7 +1,22 @@
 const request = require('supertest');
 const server = require('../../bin/www');
+const mysql = require('../../src/db/mysql');
 
 let ShortId;
+
+
+//測試前新增測試表
+beforeAll(async () => {
+    return await mysql.exec(
+        `CREATE TABLE IF NOT EXISTS shortURL.url_test ( id INT UNSIGNED NOT NULL AUTO_INCREMENT , url TEXT NOT NULL , expireAt INT NOT NULL , PRIMARY KEY (id)) ENGINE = InnoDB;`
+    );
+});
+
+//新增後刪除測試表
+afterAll(async () => {
+    await mysql.exec(`DROP TABLE url_test`)
+});
+  
 
 describe("POST /api/v1/urls", () => {
     it('使用正確格式測試 POST /api/v1/urls', async () => {

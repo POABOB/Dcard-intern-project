@@ -1,7 +1,7 @@
 const { get, set } = require('../db/redis');
 const { ErrorModel, BaseModel } = require('../utils/response');
 const { HOST_CONF } = require('../config/url');
-const { getURL, insertURL} = require('../model/index');
+const { getURL, insertURL, getRandomURL, insertRandomURL} = require('../model/index');
 const { validateUrl, validateExpire, convertIdToShortId, convertShortIdToId } = require("../utils/url");
 const { datetimeRegex } = require("../utils/const");
 
@@ -14,6 +14,8 @@ const getOriginUrlById = async (req, res, ShortId) => {
         if(result === null) {
             // redis沒有，往mysql找
             result = await getURL(id)
+            // result = await getRandomURL(id)
+            
             // 有沒有找到都要存入redis，目的是避免同時大量查找不存在的url
 
             if(result.length !== 0) {
@@ -34,8 +36,8 @@ const getOriginUrlById = async (req, res, ShortId) => {
         res.end();
         return;
     } catch(e) {
-        res.writeHead(400, {"Content-type": "text/plain"});
-        return new ErrorModel(`Error Ocurred ${e}`);
+        res.writeHead(500, {"Content-type": "text/plain"});
+        return new ErrorModel(`${e.stack}`);
     }
 };
 
@@ -52,7 +54,13 @@ const insertOriginUrl = async (req, res) => {
         }
 
         expireAt = Math.floor(new Date(expireAt).getTime() / 1000);
-        const data = await insertURL(url, expireAt)
+
+        const Start = Date.now()
+        const data = await insertURL(url, expireAt);
+        const End = Date.now()
+		console.log(`Start at ${Start}, End at ${End}/, Random Total time: ${(End - Start) / 1000} seconds`)
+
+        // const data = await insertRandomURL(url, expireAt);
 
         // 插入redis
         set(data['id'], { url: url, expireAt: expireAt })
@@ -61,8 +69,8 @@ const insertOriginUrl = async (req, res) => {
         // 返回BaseModel
         return new BaseModel(ShortId, HOST_CONF + ShortId);
     } catch(e) {
-        res.writeHead(400, {"Content-type": "text/plain"});
-        return new ErrorModel(`Error Ocurred ${e}`);
+        res.writeHead(500, {"Content-type": "text/plain"});
+        return new ErrorModel(`${e.stack}`);
     }
 };
 

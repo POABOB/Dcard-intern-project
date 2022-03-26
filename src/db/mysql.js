@@ -10,7 +10,7 @@ module.exports = {
 			this.pool = mysql.createPool(this.config)
 		}
 	},
-	exec: async function (sql)  {
+	exec: async function (sql, values)  {
 		return new Promise(( resolve, reject ) => {
 			try {
 				this.create();
@@ -18,7 +18,7 @@ module.exports = {
 					if (err) {
 						reject(err);
 					} else {
-						connection.query(sql, (err, result) => {
+						connection.query(sql, values, (err, result) => {
 
 							if (err) {
 								reject(err);
@@ -36,6 +36,12 @@ module.exports = {
 				console.error(e);
 			}
 		});
+	},
+	end: function() {
+        this.pool.end((err) => {
+            if (err) throw err;
+			process.exit();
+        });
 	},
 	escape: mysql.escape
 }
